@@ -1,3 +1,7 @@
+  Leak checks are now default in `forge test` and generated CI via
+  `[build] leak_check = true` (absent key means true); `--no-leaks` opts out.
+  Generated macOS/Linux CI installs Forge and runs `forge leaks --all`;
+  Windows skips. Full suite 219/219 green locally, actionlint clean.
   New feature `forge leaks`: implied Debug build; macOS native `leaks` on the
   entitled binary, Linux LSan in an isolated tree; leaks found exits 5. Local
   verification 214/214 Bats green, ShellCheck clean. Hosted CI pending.

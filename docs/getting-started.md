@@ -75,6 +75,11 @@ forge test --list        # list registered tests without running them
 forge leaks              # Debug build + leak check (leaks on macOS, LSan on Linux)
 ```
 
+`forge test` also checks applications and test executables for leaks by
+default, and generated CI runs `forge leaks --all` on macOS/Linux. Set
+`[build] leak_check = false` in `Forge.toml` or pass `forge test --no-leaks`
+to skip it. Windows CI skips the leak check with a note.
+
 Debug and Release build in `target/debug/` and `target/release/`. Forge
 refreshes the CMake cache in place when the toolchain or dependency inputs
 change. Sanitizer builds stay under `target/sanitizers/`, isolated from the

@@ -25,6 +25,16 @@ jobs:
           python-version: '3.12'
       - name: Prepare dependency inputs
         run: python .github/forge/ci.py prepare
+      - name: Read leak-check policy
+        id: leak
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          plan = json.loads(Path('target/forge-ci-inputs/plan.json').read_text())
+          print('enabled=1' if plan.get('leak_check', True) else 'enabled=0')
+          PY
       - uses: docker/setup-buildx-action@v3
       - name: Build dependency image
         id: deps-image
@@ -53,6 +63,7 @@ jobs:
           build-args: |
             CONFIG=${{ matrix.config }}
             DEPENDENCY_IMAGE=ci-dependency-image
+            LEAK_CHECK=${{ steps.leak.outputs.enabled }}
           build-contexts: ci-dependency-image=oci-layout://${{ runner.temp }}/deps-image@${{ steps.deps-image.outputs.digest }}
           tags: forge-project:${{ matrix.config }}
           outputs: type=docker,dest=${{ runner.temp }}/project-image.tar
@@ -115,6 +126,26 @@ jobs:
         run: python .github/forge/ci.py deps --config ${{ matrix.config }}
       - name: Build and test
         run: python .github/forge/ci.py build --config ${{ matrix.config }}
+      - name: Read leak-check policy
+        id: leak
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          plan = json.loads(Path('target/forge-ci-inputs/plan.json').read_text())
+          print('enabled=true' if plan.get('leak_check', True) else 'enabled=false')
+          PY
+      - name: Install Forge and check for leaks
+        if: runner.os != 'Windows' && steps.leak.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh | sh
+          "$HOME/.local/bin/forge" leaks --all
+      - name: Leak check skipped on Windows
+        if: runner.os == 'Windows'
+        run: echo "forge leaks supports macOS and Linux only; skipping on Windows"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-${{ matrix.config }}

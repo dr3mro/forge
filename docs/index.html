@@ -504,6 +504,7 @@ forge watch --sanitize address --bin hello</pre></div></details>
 <dt>--repeat N</dt><dd>Repeat tests until failure, up to N times</dd>
 <dt>--allow-no-tests</dt><dd>Allow an empty CTest selection</dd>
 <dt>--list</dt><dd>List CTest tests without running them</dd>
+<dt>--no-leaks</dt><dd>Skip the default leak check after tests</dd>
 <dt>--release</dt><dd>Use the release preset</dd>
 <dt>--sanitize NAME</dt><dd>Build and test in an isolated sanitizer directory</dd>
 </dl>
@@ -512,9 +513,14 @@ forge test --sanitize address</pre></div></details>
 <details data-command="leaks"><summary><code>forge leaks [OPTIONS] [-- ARGS]</code><span>Build debug and check an executable for leaks</span></summary>
 <div class="content">
 <p>macOS uses <code>leaks -quiet -atExit --</code> on the entitled debug build.
-Linux uses an isolated LeakSanitizer build. A leak report exits 5.</p>
+Linux uses an isolated LeakSanitizer build. A leak report exits 5.
+<code>forge test</code> and generated CI check applications and test
+executables by default; set <code>[build] leak_check = false</code> or pass
+<code>forge test --no-leaks</code> to opt out.</p>
 <dl>
 <dt>--bin NAME</dt><dd>Select a declared executable</dd>
+<dt>--test NAME</dt><dd>Check a declared test executable</dd>
+<dt>--all</dt><dd>Check every declared application and test</dd>
 <dt>--</dt><dd>Forward remaining arguments to the executable</dd>
 </dl>
 <pre>forge leaks --bin hello -- --version</pre></div></details>

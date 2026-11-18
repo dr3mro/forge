@@ -332,6 +332,13 @@ build. Linux uses an isolated LeakSanitizer build, so the normal Debug tree is
 left untouched. Exit 0 means no leaks; exit 5 means a leak report or failed
 check, matching the build/test failure code. Program arguments go after `--`.
 
+`forge test` and generated CI check every application and test executable for
+leaks by default, so leaky code fails tests and CI. Add
+`[build] leak_check = false` to `Forge.toml` or pass `forge test --no-leaks`
+to opt out; existing projects without the key are checked too. Generated
+macOS/Linux CI installs Forge and runs `forge leaks --all`; Windows CI skips
+with a note.
+
 ## Watch mode
 
 `forge watch` builds and runs the selected application. It stops the old

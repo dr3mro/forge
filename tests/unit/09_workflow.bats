@@ -37,6 +37,22 @@ teardown() {
   fi
 }
 
+@test "generated CI installs Forge and checks leaks by default" {
+  grep -Fq 'leaks --all' .github/workflows/forge.yml
+  grep -Fq 'LEAK_CHECK=${{ steps.leak.outputs.enabled }}' .github/workflows/forge.yml
+  grep -Fq 'leaks --all' .github/forge/Dockerfile
+  python3 .github/forge/ci.py prepare >/dev/null
+  jq -e '.leak_check == true' target/forge-ci-inputs/plan.json
+
+  python3 - <<'PY'
+from pathlib import Path
+path = Path("Forge.toml")
+path.write_text(path.read_text().replace("leak_check = true", "leak_check = false"))
+PY
+  python3 .github/forge/ci.py prepare >/dev/null
+  jq -e '.leak_check == false' target/forge-ci-inputs/plan.json
+}
+
 @test "CI dependency inputs remain stable for source changes and track Git pins" {
   local dependency="$BATS_TEST_TMPDIR/upstream" first second
   git init -q "$dependency"

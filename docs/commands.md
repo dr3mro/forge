@@ -15,7 +15,7 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `build --debug-target T` | Build an executable with the debug preset and link it to `target/debug-T-launch` for LLDB |
 | `run [--build] [--debug\|--release] [--bin N] [--sanitize NAME] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
 | `watch [--bin NAME] [--debug|--release] [--sanitize NAME] [-- ARGS]` | Rebuild and run when workspace inputs change |
-| `test [FILTER] [--repeat N] [--sanitize NAME] [--list]` | CTest; `--sanitize` uses an isolated build dir, `--list` enumerates tests without running them |
+| `test [FILTER] [--repeat N] [--sanitize NAME] [--list] [--no-leaks]` | CTest; `--sanitize` uses an isolated build dir, `--list` enumerates tests, `--no-leaks` skips the default leak check |
 | `leaks [--bin NAME] [-- ARGS]` | Build debug and check the selected executable for leaks |
 | `clean [--profile N] [--all]` | Delete only validated Forge-owned dirs under `target/`; `--all` confirms |
 | `add NAME[/VERSION] --conan [--target T]` | Discover Conan CMake metadata, link a local target, and sync |
@@ -49,6 +49,13 @@ application project's name. Generated members also inherit the root project's
 from `new --lib` and `init --lib` use the same template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
 to choose library linkage. New root projects automatically receive GitHub
 Actions for Debug and Release on Windows, Linux, and macOS.
+
+`forge test` runs the leak check after CTest by default. Set
+`[build] leak_check = false` in `Forge.toml` or pass `--no-leaks` to skip it;
+existing manifests without the key behave as `true`. A sanitizer run skips the
+extra leak check because its own build already instruments memory errors.
+Generated CI honors the same setting: it installs Forge on macOS/Linux jobs
+and runs `forge leaks --all`, while Windows jobs skip with a note.
 
 `forge leaks` always uses a Debug build. On macOS it runs `leaks -quiet
 -atExit --` against the normal, entitled debug executable; on Linux it builds

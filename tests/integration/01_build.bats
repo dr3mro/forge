@@ -823,3 +823,68 @@ PY
   [ -f target/sanitizers/leak/debug/CMakeCache.txt ]
   [[ "$output" == *"no leaks detected"* ]]
 }
+
+@test "leaks finds a deliberate C++ leak on macOS and Linux" {
+  cat > src/main.cpp <<'CPP'
+#include <cstdlib>
+#include <cstring>
+int main() {
+  char *block = static_cast<char *>(std::malloc(16384));
+  if (block) {
+    std::memset(block, 0xAB, 16384);
+    block = nullptr;
+  }
+  return 0;
+}
+CPP
+  run_forge --no-color leaks --bin hello
+  [ "$status" -eq 5 ]
+  if [[ "$(uname -s)" == Darwin ]]; then
+    [[ "$output" == *"leaks detected"* ]]
+    [[ "$output" == *"ROOT LEAK"* ]]
+  else
+    [[ "$output" == *"leak check failed"* ]]
+    [[ "$output" == *"LeakSanitizer"* ]]
+  fi
+}
+
+@test "leaks finds a deliberate C leak on macOS and Linux" {
+  run_forge --no-color generate lib cutil --c >/dev/null
+  [ "$status" -eq 0 ]
+  python3 - <<'PY'
+from pathlib import Path
+header = Path("libs/cutil/include/cutil.h")
+text = header.read_text()
+assert 'extern "C" {' in text
+header.write_text(text.replace('extern "C" {', 'extern "C" {\nvoid cutil_leak(void);', 1))
+PY
+  cat > libs/cutil/src/cutil.c <<'C'
+#include "cutil.h"
+#include <stdlib.h>
+#include <string.h>
+int cutil_add(int a, int b) { return a + b; }
+void cutil_leak(void) {
+  char *block = (char *)malloc(16384);
+  if (block) {
+    memset(block, 0xAB, 16384);
+    block = 0;
+  }
+}
+C
+  cat > src/main.cpp <<'CPP'
+#include "cutil.h"
+int main() {
+  cutil_leak();
+  return 0;
+}
+CPP
+  run_forge --no-color leaks --bin hello
+  [ "$status" -eq 5 ]
+  if [[ "$(uname -s)" == Darwin ]]; then
+    [[ "$output" == *"leaks detected"* ]]
+    [[ "$output" == *"ROOT LEAK"* ]]
+  else
+    [[ "$output" == *"leak check failed"* ]]
+    [[ "$output" == *"LeakSanitizer"* ]]
+  fi
+}

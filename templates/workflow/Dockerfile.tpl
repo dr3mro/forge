@@ -13,5 +13,12 @@ RUN python .github/forge/ci.py deps --config "$CONFIG"
 
 FROM ${DEPENDENCY_IMAGE} AS project
 ARG CONFIG=Debug
+ARG LEAK_CHECK=1
 COPY . .
 RUN python .github/forge/ci.py build --config "$CONFIG"
+# Generated projects fail their image build on leaks by default. The workflow
+# passes [build].leak_check from plan.json as LEAK_CHECK.
+RUN if [ "$LEAK_CHECK" = "1" ]; then \
+      curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh | sh && \
+      "$HOME/.local/bin/forge" leaks --all; \
+    fi

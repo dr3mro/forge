@@ -105,6 +105,7 @@ ${metadata}cppstd = "${cppstd}"
 [build]
 generator = "Ninja"
 default_profile = "debug"
+leak_check = true
 
 [cmake.variables]
 FORGE_CODESIGN_IDENTITY = "adhoc"

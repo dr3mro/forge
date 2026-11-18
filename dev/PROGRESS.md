@@ -157,3 +157,18 @@
   entries, unit validation/dry-run tests and macOS/Linux integration tests.
 - Verification: ShellCheck exit 0; full Bats suite 214/214 green locally,
   including a real macOS `leaks` run on a fresh scaffold. Hosted CI pending.
+
+### New feature — leak checks on by default in tests and generated CI (complete, local verification)
+
+- Approved product decisions: both `forge test` and generated CI enforce leak
+  checks; `[build] leak_check = true` is the persistent setting (absent key
+  defaults to true for existing projects); `forge test --no-leaks` is the
+  quick opt-out; scope is all declared applications and test executables;
+  Windows CI skips with a note; generated CI installs Forge to run the check.
+- Implemented schema validation, scaffold default, metadata `build.leak_check`,
+  `forge leaks --test/--all`, `forge test` integration, and generated ci.py
+  plan + workflow/Dockerfile leak steps.
+- Fixed a jq default bug: `false // true` evaluates to true, so defaults now
+  use an explicit `has` check.
+- Verification: ShellCheck exit 0, actionlint on a generated workflow exit 0,
+  full Bats suite 219/219 green locally. Hosted CI verification pending.

@@ -189,7 +189,9 @@ def check_dep($n; $d):
         (if (.build | has("vcpkg_baseline")) and
             (.build.vcpkg_baseline | (type == "string" and test("^[a-fA-F0-9]{40}$")) | not)
          then err("build: vcpkg_baseline must be a full Git SHA") else empty end),
-        (.build | keys[] | select(. as $k | (["generator", "default_profile", "vcpkg_baseline"] | index($k)) | not)
+        (if (.build | has("leak_check")) and (.build.leak_check | type) != "boolean"
+         then err("build: leak_check must be a boolean") else empty end),
+        (.build | keys[] | select(. as $k | (["generator", "default_profile", "vcpkg_baseline", "leak_check"] | index($k)) | not)
          | err("build: unknown key '" + . + "'"))
       end)
    else empty end),

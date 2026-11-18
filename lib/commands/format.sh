@@ -90,6 +90,8 @@ cmd_metadata() {
     [((.dependencies // {}) | to_entries[] |
       {name: .key, source: .value.source, cmake_target: .value.cmake_target})]')
   profile=$(mq '.build.default_profile // "debug"')
+  local leak_check
+  leak_check=$(mq 'if (.build | has("leak_check")) then .build.leak_check else true end')
   build_dir=$(resolve_build_dir "${profile}")
   lock_state="absent"
   [[ -f "${FORGE_ROOT}/conan.lock" ]] && lock_state="present"
@@ -104,6 +106,7 @@ cmd_metadata() {
     --argjson targets "${targets}" \
     --argjson deps "${deps}" \
     --arg profile "${profile}" \
+    --argjson leak_check "${leak_check}" \
     --arg build_dir "${build_dir#"${FORGE_ROOT}"/}" \
     --arg lock "${lock_state}" \
     --arg sync "${sync_state}" \
@@ -111,7 +114,7 @@ cmd_metadata() {
       schema: 1,
       forge_version: $version,
       package: $pkg,
-      build: {profile: $profile, build_dir: $build_dir, conan_lock: $lock, manifest_sync: $sync},
+      build: {profile: $profile, build_dir: $build_dir, conan_lock: $lock, manifest_sync: $sync, leak_check: $leak_check},
       targets: $targets,
       dependencies: $deps
     }'

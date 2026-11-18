@@ -4,13 +4,14 @@
 
 # Build and run the selected CTest tests.
 cmd_test() {
-  local filter="" repeat=1 allow_no_tests=0 release=0 sanitize="" list=0 positional=0
+  local filter="" repeat=1 allow_no_tests=0 release=0 sanitize="" list=0 no_leaks=0 positional=0
   while (( $# > 0 )); do
     case "$1" in
       --repeat) repeat="${2:-}"; [[ "${repeat}" =~ ^[0-9]+$ ]] || die "${EXIT_USAGE}" "--repeat requires a positive integer"; shift 2 ;;
       --repeat=*) repeat="${1#*=}"; [[ "${repeat}" =~ ^[0-9]+$ ]] || die "${EXIT_USAGE}" "--repeat requires a positive integer"; shift ;;
       --allow-no-tests) allow_no_tests=1; shift ;;
       --list) list=1; shift ;;
+      --no-leaks) no_leaks=1; shift ;;
       --release) release=1; shift ;;
       --sanitize) [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "$1 requires a value"; sanitize="$2"; shift 2 ;;
       --sanitize=*) sanitize="${1#*=}"; shift ;;
@@ -93,5 +94,14 @@ cmd_test() {
   (( rc == 0 )) || die "${EXIT_BUILD}" "tests failed"
   progress_finish
   if (( list )); then return "${EXIT_OK}"; fi
+
+  # Leak checks are on by default ([build] leak_check = true) so novice code
+  # cannot pass tests while leaking. A sanitizer run already covers memory
+  # errors in its own tree, so do not duplicate it with a second build.
+  if (( ! no_leaks )) && [[ -z "${FORGE_SANITIZER}" ]]; then
+    if [[ "$(mq 'if (.build | has("leak_check")) then .build.leak_check else true end')" == "true" ]]; then
+      forge_leaks_check_all || return $?
+    fi
+  fi
   out "tests ok"
 }

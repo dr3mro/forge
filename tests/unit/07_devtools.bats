@@ -20,6 +20,7 @@ teardown() {
   [[ "$output" != *$'\033'* ]]
   run jq -e '
     .schema == 1 and .package.name == "app"
+    and .build.leak_check == true
     and (.targets | type == "array" and length == 2)
     and (.targets[0].kind == "bin" and .targets[0].name == "app")
   ' <<< "$output"
@@ -206,6 +207,40 @@ teardown() {
   run_forge build --toolchain=missing
   [ "$status" -eq 2 ]
   run_forge build --target=invalid-target
+  [ "$status" -eq 2 ]
+}
+
+@test "forge test checks leaks by default and honors both opt-outs" {
+  run_forge --no-color build >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color test
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no leaks detected in"* ]]
+
+  run_forge --no-color test --no-leaks
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"no leaks detected in"* ]]
+
+  python3 - <<'PY'
+from pathlib import Path
+path = Path("Forge.toml")
+path.write_text(path.read_text().replace("leak_check = true", "leak_check = false"))
+PY
+  run_forge --no-color test
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"no leaks detected in"* ]]
+  run_forge --no-color metadata --format json
+  [ "$status" -eq 0 ]
+  jq -e '.build.leak_check == false' <<< "$output"
+}
+
+@test "invalid leak_check is rejected before metadata output" {
+  python3 - <<'PY'
+from pathlib import Path
+path = Path("Forge.toml")
+path.write_text(path.read_text().replace("leak_check = true", 'leak_check = "yes"'))
+PY
+  run_forge --no-color metadata --format json
   [ "$status" -eq 2 ]
 }
 

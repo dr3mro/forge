@@ -109,7 +109,10 @@ option	watch	--	Forward remaining arguments to the executable
 option	test	--repeat N	Repeat tests until failure, up to N times
 option	test	--allow-no-tests	Allow an empty CTest selection
 option	test	--list	List CTest tests without running them
+option	test	--no-leaks	Skip the default leak check after tests
 option	leaks	--bin NAME	Select a declared executable
+option	leaks	--test NAME	Check a declared test executable
+option	leaks	--all	Check every declared application and test
 option	leaks	--	Forward remaining arguments to the executable
 option	test	--release	Use the release preset
 option	test	--sanitize NAME	Build and test in an isolated sanitizer directory	address undefined leak thread asan ubsan lsan tsan

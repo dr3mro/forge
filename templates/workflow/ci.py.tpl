@@ -45,7 +45,9 @@ def prepare():
     INPUTS.mkdir(parents=True, exist_ok=True)
     workspace = list(projects(Path.cwd(), set()))
     root_manifest = workspace[0][1]
-    baseline = root_manifest.get("build", {}).get("vcpkg_baseline")
+    build_settings = root_manifest.get("build", {})
+    baseline = build_settings.get("vcpkg_baseline")
+    leak_check = build_settings.get("leak_check", True)
     git, ports = {}, {}
     conan = {}
     for _, manifest in workspace:
@@ -80,7 +82,8 @@ def prepare():
     if baseline and not re.fullmatch(r"[a-fA-F0-9]{40}", baseline):
         raise ValueError("build.vcpkg_baseline must be a full Git SHA")
     write_json("plan.json", {"git": git, "conan": bool(conan), "vcpkg": bool(ports),
-                             "vcpkg_ref": baseline or VCPKG_RELEASE})
+                             "vcpkg_ref": baseline or VCPKG_RELEASE,
+                             "leak_check": bool(leak_check)})
     for filename in ("conanfile.txt", "conan.lock", "vcpkg.json"):
         (INPUTS / filename).unlink(missing_ok=True)
     if conan:
