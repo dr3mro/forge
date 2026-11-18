@@ -43,6 +43,18 @@ load ../test_helper
   cd "$old"; rm -rf "$dir"
 }
 
+@test "generated workspace members inherit the root C++ standard" {
+  local dir="${BATS_TMPDIR}/forge-cppstd-member-$$" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new root --defaults --cppstd 17 >/dev/null
+  [ "$status" -eq 0 ]
+  cd root
+  run_forge --no-color generate lib widget >/dev/null
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "17"$' libs/widget/Forge.toml
+  cd "$old"; rm -rf "$dir"
+}
+
 @test "new scaffolds user, manifest-variable, and diagnostics modules under cmake" {
   local dir="${BATS_TMPDIR}/forge-cmake-modules-$$" old="$PWD"
   mkdir -p "$dir"; cd "$dir"

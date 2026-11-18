@@ -41,4 +41,11 @@
 - **Batch 4:** BUG-003 fixed — missing sanitized executable error names the sanitizer and gives a valid repair command.
 - **BUG-004:** missing `--sanitize` operand no longer hangs `build`/`run`/`watch`; exits 2.
 - **Config:** `opencode.json` now auto-allows all actions (including `.env` reads) and all eight agents have `shell: allow`; verified with `opencode debug config` and `opencode debug agents`. Specialist `edit: deny` is preserved.
-- **Commit/push:** pending for this batch (user requested commit/push before starting the next task).
+- **Commit/push:** `47a6144` pushed before the next task started.
+
+### Next task — generated members inherit root C++ standard (complete, verified)
+
+- Confirmed BUG-005 with a disposable probe: root `cppstd=17` produced `libs/widget/Forge.toml` with `cppstd=20`.
+- Added `workspace_application_cppstd()` in `lib/commands/generate.sh`, mirroring the namespace helper, with a safe default of 20 for older manifests.
+- Added regression test in `tests/unit/04_project.bats` and a note in `docs/commands.md`.
+- Verification: `shellcheck_exit=0`, `1..202`, `bats_exit=0` — 202/202 green locally. Commit/push pending.

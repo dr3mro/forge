@@ -540,6 +540,6 @@ with accurate context. Do this even for small fixes.
   was found when the suite hung, fixed by validating the operand before `shift 2`,
   and guarded with a `timeout 10` Bats assertion. A website catalog failure
   caused by a missing `--cppstd` example was fixed in `docs/index.html`.
-- Open uncertainty: generated workspace members still default to `cppstd=20`
-  when the root declares 17; unconfirmed candidate in `dev/TODO.md`.
+- Resolved: BUG-005 — generated workspace members now inherit the root
+  `cppstd` via `workspace_application_cppstd()`; full suite 202/202 green.
   Hosted CI and Linux remain unverified.

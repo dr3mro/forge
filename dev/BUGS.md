@@ -96,6 +96,21 @@ QA summary — iteration 1 (sanitizer build/run slice)
 **Regression test:** `build and run validate sanitizer names before doing work` now wraps the missing-operand call in `timeout 10` so a recurrence fails instead of hanging.  
 **Verification:** direct CLI check returned exit 2 in <1 s for `build`, `run` and `watch`; full suite pending.
 
+## BUG-005 — Generated workspace members ignored the root C++ standard
+
+**Severity:** Medium  
+**Category:** Scaffolding / Workspace  
+**Status:** Fixed — verified locally (202/202 Bats, ShellCheck clean)  
+**Reproducibility:** Always
+
+**Summary:** A workspace root scaffolded with `--cppstd 17` produced generated members with `cppstd = "20"`, so members could not compile root-required C++17-only source without a manual manifest edit.
+
+**Evidence:** disposable probe — root `cppstd = "17"`, `libs/widget/Forge.toml` `cppstd = "20"`.  
+**Root cause:** `generate.sh` called `scaffold_project` without the C++ standard, so it used the default 20; namespace already had an explicit root-inheritance helper.  
+**Fix:** add `workspace_application_cppstd()` mirroring `workspace_application_namespace()`, and pass the root value to `scaffold_project`.  
+**Regression test:** `generated workspace members inherit the root C++ standard`.  
+**Verification:** focused suite ok 3; full suite 202/202.
+
 ## Unverified risks
 
 - Hosted CI, Linux behavior and cross-platform sanitizer support were not exercised locally.

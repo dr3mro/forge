@@ -5,7 +5,7 @@ Ideas discovered while working the loop. Promoted into an iteration when they be
 ## Test-failure backlog (populated after each 60-minute test window)
 
 - _2026-11-18: resolved. One failure was observed mid-campaign (website catalog test 149: missing `--cppstd 23` example in `docs/index.html`); fixed and full suite re-run at 201/201 with ShellCheck clean. No open test failures._
-- **Candidate bug (static, unconfirmed):** `forge generate lib` uses `scaffold_project`'s default `cppstd=20`, so a workspace whose root declares `--cppstd 17` gets a member manifest with `cppstd = "20"`. Likely should inherit the root application's standard, matching the namespace behavior. Verify and fix as the next task.
+- ~~**Candidate bug:** generated workspace members ignored root `cppstd`.~~ Confirmed by probe, fixed with `workspace_application_cppstd()` and regression test (BUG-005).
 
 ## Candidate ideas (not yet scheduled)
 

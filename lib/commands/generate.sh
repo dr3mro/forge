@@ -13,6 +13,20 @@ workspace_application_namespace() {
   fi
 }
 
+# Use the root C++ standard even when generating inside a nested member.
+workspace_application_cppstd() {
+  local root json value
+  root=$(workspace_enclosing_root "${FORGE_ROOT}") || return 1
+  if [[ "${root}" == "${FORGE_ROOT}" ]]; then
+    value=$(mq '.package.cppstd // "20"')
+  else
+    json=$(manifest_to_json "${root}/Forge.toml") || return 1
+    value=$(jq -er '.package.cppstd // "20"' <<< "${json}") || return 1
+  fi
+  [[ "${value}" =~ ^(17|20|23)$ ]] || value=20
+  printf '%s' "${value}"
+}
+
 # Write a standalone C++ class pair without creating a library or manifest edits.
 generate_class() {
   local name="$1" path="${2:-.}" cpp_namespace="$3" dest header source author_line
@@ -136,9 +150,11 @@ cmd_generate() {
   sync_check_destinations "${FORGE_ROOT}"
   local member_parent="${dest%/*}"
   [[ ! -L "${member_parent}" ]] || die "${EXIT_CONFLICT}" "refusing to use a symlinked member directory: ${member_parent}"
-  local saved_root="${FORGE_ROOT}" saved_manifest="${FORGE_MANIFEST_PATH}" author_line
+  local saved_root="${FORGE_ROOT}" saved_manifest="${FORGE_MANIFEST_PATH}" author_line cppstd
   author_line=$(project_author_line)
-  scaffold_project "${dest}" "${name}" "${kind}" 0 "0.1.0" "" "${author_line}" "${extension}" "${cpp_namespace}" "${linkage}" 0
+  cppstd=$(workspace_application_cppstd) \
+    || die "${EXIT_USAGE}" "could not read the workspace C++ standard"
+  scaffold_project "${dest}" "${name}" "${kind}" 0 "0.1.0" "" "${author_line}" "${extension}" "${cpp_namespace}" "${linkage}" 0 "${cppstd}"
   FORGE_ROOT="${saved_root}"
   FORGE_MANIFEST_PATH="${saved_manifest}"
 
