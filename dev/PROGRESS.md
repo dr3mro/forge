@@ -90,4 +90,10 @@
 ### Next task — profile-aware test repair hint (complete, verified)
 
 - BUG-007: `forge test --release` before a release build suggested `forge build` (debug). It now suggests `forge build --release`; regression test added in `tests/unit/07_devtools.bats`.
-- Verification: `shellcheck_exit=0`, `1..208`, `bats_exit=0` — 208/208 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..208`, `bats_exit=0` — 208/208 green locally. Committed and pushed as `85d41e6`.
+
+### Next task — Conan + sanitizer integration guard (complete, verified)
+
+- QA probe confirmed `forge add fmt --conan --yes`, `build`, `build --sanitize address`, `test --sanitize address` and `deps status` all succeed together; the Conan lock remains present and sync clean.
+- Added an integration test in `tests/integration/02_mixed.bats` asserting the isolated sanitizer tree, no normal build, successful CTest under ASan, and Conan source in `deps status --format json`.
+- Verification: `shellcheck_exit=0`, `1..209`, `bats_exit=0` — 209/209 green locally. Commit/push pending.

@@ -278,3 +278,17 @@ CPP
   run_forge --no-color build
   [ "$status" -eq 0 ]
 }
+
+@test "Conan fmt builds and tests under an isolated sanitizer tree" {
+  run_forge --no-color add fmt --conan --yes >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color build --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+  [ -f target/sanitizers/address/debug/CMakeCache.txt ]
+  [ ! -e target/debug ]
+  run_forge --no-color test --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color deps status --format json
+  [ "$status" -eq 0 ]
+  jq -e 'any(.dependencies[]; .name == "fmt" and .source == "conan")' <<< "$output"
+}
