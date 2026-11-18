@@ -96,4 +96,10 @@
 
 - QA probe confirmed `forge add fmt --conan --yes`, `build`, `build --sanitize address`, `test --sanitize address` and `deps status` all succeed together; the Conan lock remains present and sync clean.
 - Added an integration test in `tests/integration/02_mixed.bats` asserting the isolated sanitizer tree, no normal build, successful CTest under ASan, and Conan source in `deps status --format json`.
-- Verification: `shellcheck_exit=0`, `1..209`, `bats_exit=0` — 209/209 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..209`, `bats_exit=0` — 209/209 green locally. Committed and pushed as `b5d7ed5`.
+
+### Next task — shared-library sanitizer regression (complete, verified)
+
+- QA probe confirmed `generate lib plug --shared` builds and tests under ASan with `-fsanitize=address` on the C++ source and the dylib in the member build subdirectory.
+- Added a regression test in `tests/unit/07_devtools.bats` checking instrumentation and the shared artifact. No product code change needed.
+- Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Commit/push pending.

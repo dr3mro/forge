@@ -92,6 +92,19 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "sanitizer build instruments a generated shared library" {
+  command -v cmake >/dev/null || skip "cmake not installed"
+  run_forge --no-color generate lib plug --shared >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color build --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+  local cc="target/sanitizers/address/debug/compile_commands.json"
+  run jq -e '[.[] | select(.file | endswith("plug.cpp")) | .command | contains("-fsanitize=address")] | any' "$cc"
+  [ "$status" -eq 0 ]
+  local base="target/sanitizers/address/debug/ws_libs_plug/libplug"
+  [ -f "${base}.dylib" ] || [ -f "${base}.so" ]
+}
+
 @test "build and run validate sanitizer names before doing work" {
   for command in build run watch; do
     run_forge --dry-run "$command" --sanitize=invalid

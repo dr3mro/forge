@@ -543,6 +543,8 @@ with accurate context. Do this even for small fixes.
 - Resolved: BUG-005 — generated workspace members now inherit the root
   `cppstd` via `workspace_application_cppstd()`; full suite 202/202 green.
   Hosted CI and Linux remain unverified.
+- 2026-11-18 generated shared libraries verified under ASan and covered by a
+  regression test; full suite 210/210 green.
 - 2026-11-18 Conan fmt + ASan build/test workflow verified by probe and
   integration test; full suite 209/209 green.
 - 2026-11-18 BUG-007: `test --release` now suggests `forge build --release`
