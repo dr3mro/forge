@@ -16,6 +16,7 @@ load ../test_helper
   [ -f hello/.forge/state.json ]
   [ -f hello/.forge/base/CMakeLists.txt ]
   [ -f hello/src/main.cpp ]
+  grep -Fq '#include "forge-version.cpp" //NOLINT' hello/src/main.cpp
   run jq -e '
     .version == 1 and (.manifest | test("^[0-9a-f]{64}$"))
     and (.files["CMakeLists.txt"] | test("^[0-9a-f]{64}$"))

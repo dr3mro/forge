@@ -1,4 +1,4 @@
-#include "forge-version.cpp"
+#include "forge-version.cpp" //NOLINT
 #include <iostream>
 #include <string_view>
 
