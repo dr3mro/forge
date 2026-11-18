@@ -71,6 +71,57 @@ load ../test_helper
   cd "$old"; rm -rf "$dir"
 }
 
+@test "generate class writes a standalone pair in the current directory" {
+  local dir="${BATS_TMPDIR}/forge-class-$$" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new hello --defaults
+  [ "$status" -eq 0 ]
+  cd hello
+
+  run_forge --no-color generate class Widget
+  [ "$status" -eq 0 ]
+  [ -f Widget.hpp ]
+  [ -f Widget.cpp ]
+  grep -Fq 'namespace hello {' Widget.hpp
+  grep -Fq 'class Widget {' Widget.hpp
+  grep -Fq 'virtual ~Widget();' Widget.hpp
+  grep -Fq 'Widget::Widget() = default;' Widget.cpp
+  ! grep -q 'export.h\|FORGE_Widget_API' Widget.hpp
+  jq -e '.files | has("Widget.hpp") | not' .forge/state.json
+  run_forge sync --check
+  [ "$status" -eq 0 ]
+  cd "$old"; rm -rf "$dir"
+}
+
+@test "generate class honors a path, namespace, dry-run, and overwrite refusal" {
+  local dir="${BATS_TMPDIR}/forge-class-path-$$" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new hello --defaults >/dev/null
+  cd hello
+
+  run_forge --no-color generate class Point src/geometry --namespace acme::geom
+  [ "$status" -eq 0 ]
+  [ -f src/geometry/Point.hpp ]
+  [ -f src/geometry/Point.cpp ]
+  grep -Fq 'namespace acme::geom {' src/geometry/Point.hpp
+
+  run_forge --no-color generate class Temp --dry-run
+  [ "$status" -eq 0 ]
+  [ ! -e Temp.hpp ]
+  [[ "$output" == *"would generate class 'Temp'"* ]]
+
+  run_forge --no-color generate class Point src/geometry
+  [ "$status" -eq 6 ]
+  [[ "$output" == *'refusing to overwrite'* ]]
+
+  run_forge --no-color generate class 'class'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *'C++ keyword'* ]]
+  run_forge --no-color generate class Bad ../outside
+  [ "$status" -eq 2 ]
+  cd "$old"; rm -rf "$dir"
+}
+
 @test "new refuses to overwrite an existing directory" {
   local dir="${BATS_TMPDIR}/forge-new-over-$$" old="$PWD"
   mkdir -p "$dir/hello"; cd "$dir"

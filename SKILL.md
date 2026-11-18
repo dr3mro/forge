@@ -183,6 +183,14 @@ projects for manual tests.
 - `forge generate lib NAME --c` provides a .c source, a C/C++-compatible .h
   header, and a C test. C++ is the default and can be selected with `--cpp`.
   Mixed C and C++ workspaces build and test through their root.
+- `forge generate class NAME [PATH]` writes only `NAME.hpp` and `NAME.cpp`
+  from `templates/base/class.*.tpl` (no export macro, no manifest/CMake edits,
+  no sync). PATH is an optional positional relative to the current directory,
+  defaults to `.`, and is checked with `path_is_safe_relative`; existing files
+  are never overwritten. The namespace defaults to the root project name via
+  `workspace_application_namespace`, with `--namespace` to override. The helper
+  `generate_class()` lives in `lib/commands/generate.sh`; the command is
+  registered in `cli-reference.tsv` and the website catalog.
 - Library scaffolds persist `[[lib]].type` through `--static` (default)
   or `--shared` (alias `--dynamic`) for both C and C++. Existing manifests
   without a type retain CMake's `BUILD_SHARED_LIBS` behavior. Explicit static

@@ -618,7 +618,7 @@ forge sync --apply --yes</pre></div></details>
 <dt>--format FORMAT</dt><dd>Select the metadata output format</dd>
 </dl>
 <pre>forge metadata --format json</pre></div></details>
-<details data-command="generate"><summary><code>forge generate lib|bin NAME [OPTIONS]</code><span>Scaffold a workspace member and sync</span></summary>
+<details data-command="generate"><summary><code>forge generate lib|bin|class NAME [OPTIONS]</code><span>Scaffold a workspace member or a standalone class</span></summary>
 <div class="content">
 <pre>forge generate lib widget --c</pre></div></details>
 <details data-command="generate lib"><summary><code>forge generate lib NAME [OPTIONS]</code><span>Create a C or C++ library member</span></summary>
@@ -640,6 +640,14 @@ forge generate lib plugin --shared</pre></div></details>
 <dt>--cpp</dt><dd>Generate C++ sources</dd>
 </dl>
 <pre>forge generate bin worker</pre></div></details>
+<details data-command="generate class"><summary><code>forge generate class NAME [PATH] [--namespace NAME]</code><span>Create a C++ class pair in PATH (default: current directory)</span></summary>
+<div class="content">
+<p>Writes <code>NAME.hpp</code> and <code>NAME.cpp</code> from the class templates.
+No manifest, CMake target, or workspace member is created.</p>
+<dl>
+<dt>--namespace NAME</dt><dd>Set the C++ namespace (defaults to the root project name)</dd>
+</dl>
+<pre>forge generate class Point src/geometry</pre></div></details>
 <details data-command="workflow"><summary><code>forge workflow [SUBCOMMAND]</code><span>Manage the generated CI workflow</span></summary>
 <div class="content">
 <pre>forge workflow init</pre></div></details>

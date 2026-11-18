@@ -215,9 +215,10 @@ terminal, or `forge help deps pin` to open a specific subcommand.
 | `docs` | `forge docs` | Generate HTML documentation with Doxygen |
 | `fmt` | `forge fmt --check` | Format C and C++ sources with clang-format |
 | `metadata` | `forge metadata --format json` | Emit stable project metadata as JSON |
-| `generate` | `forge generate lib widget --c` | Scaffold a workspace member and sync |
+| `generate` | `forge generate lib widget --c` | Scaffold a workspace member or a standalone class |
 | `generate lib` | `forge generate lib widget --c` | Create a C or C++ library member |
 | `generate bin` | `forge generate bin worker` | Create a C++ application member |
+| `generate class` | `forge generate class Point src/geometry` | Create a C++ class pair in PATH (default: current directory) |
 | `workflow` | `forge workflow init` | Manage the generated CI workflow |
 | `workflow init` | `forge workflow init --dry-run` | Create a GitHub Actions template |
 | `update` | `forge update` | Refresh Forge from its installation source |
@@ -238,6 +239,18 @@ operators. The source defaults those operations in the same namespace.
 ```bash
 forge generate lib math --namespace acme::numeric
 forge new geometry --lib --namespace acme::geometry --defaults
+```
+
+`forge generate class NAME [PATH]` writes just `NAME.hpp` and `NAME.cpp`
+from the class templates. The path is relative to the current directory and
+defaults to it; directories are created as needed. No library member, manifest
+entry, or CMake target is created. The namespace defaults to the root project
+name and can be overridden with `--namespace`.
+
+```bash
+forge generate class Point                 # ./Point.hpp and ./Point.cpp
+forge generate class Point src/geometry    # src/geometry/Point.{hpp,cpp}
+forge generate class Point --namespace acme::geom
 ```
 
 ## Generated CMake layout

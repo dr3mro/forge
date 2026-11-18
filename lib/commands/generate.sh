@@ -13,9 +13,36 @@ workspace_application_namespace() {
   fi
 }
 
+# Write a standalone C++ class pair without creating a library or manifest edits.
+generate_class() {
+  local name="$1" path="${2:-.}" cpp_namespace="$3" dest header source author_line
+  local tpl="${FORGE_HOME}/templates/base"
+  if [[ "${path}" == /* ]]; then
+    dest="${path}"
+  else
+    path_is_safe_relative "${path}" || die "${EXIT_USAGE}" "unsafe class path: ${path}"
+    dest="${PWD}/${path}"
+  fi
+  [[ ! -L "${dest}" ]] || die "${EXIT_CONFLICT}" "refusing to use a symlinked class directory: ${dest}"
+  mkdir -p -- "${dest}" || die "${EXIT_OTHER}" "could not create ${dest}"
+  header="${dest}/${name}.hpp"
+  source="${dest}/${name}.cpp"
+  [[ ! -e "${header}" && ! -L "${header}" ]] || die "${EXIT_CONFLICT}" "refusing to overwrite: ${header}"
+  [[ ! -e "${source}" && ! -L "${source}" ]] || die "${EXIT_CONFLICT}" "refusing to overwrite: ${source}"
+  if (( FORGE_DRY_RUN )); then
+    status "dry-run: would generate class '${name}' in ${dest}"
+    return "${EXIT_OK}"
+  fi
+  author_line=$(project_author_line)
+  scaffold_source_file "${tpl}/class.hpp.tpl" "${header}" "${name}" "${author_line}" "${cpp_namespace}"
+  scaffold_source_file "${tpl}/class.cpp.tpl" "${source}" "${name}" "${author_line}" "${cpp_namespace}"
+  out "generated class '${name}' in ${dest}"
+}
+
 # Scaffold a workspace member and register it in the parent manifest.
 cmd_generate() {
   local kind="${1:-}" name="${2:-}" subdir dest extension=cpp cpp_namespace="" linkage=""
+  local -a class_path=()
   if [[ "${kind}" == --help || "${kind}" == -h ]]; then
     cmd_help generate
     return
@@ -41,15 +68,25 @@ cmd_generate() {
         cpp_namespace="$2"
         shift ;;
       --help|-h) cmd_help generate "${kind}"; return ;;
-      *) die "${EXIT_USAGE}" "unknown generate option: $1" ;;
+      *)
+        if [[ "${kind}" == class && ${#class_path[@]} -eq 0 && "$1" != -* ]]; then
+          class_path+=("$1")
+        else
+          die "${EXIT_USAGE}" "unknown generate option: $1"
+        fi ;;
     esac
     shift
   done
-  [[ "${kind}" == lib || "${extension}" == cpp ]] \
-    || die "${EXIT_USAGE}" "--c is available for generated libraries"
+  if [[ "${kind}" == class ]]; then
+    [[ "${extension}" == cpp && -z "${linkage}" ]] \
+      || die "${EXIT_USAGE}" "class generation accepts only --namespace and an optional PATH"
+  else
+    [[ "${kind}" == lib || "${extension}" == cpp ]] \
+      || die "${EXIT_USAGE}" "--c is available for generated libraries"
+  fi
   case "${kind}" in
-    lib | bin) ;;
-    *) die "${EXIT_USAGE}" "generate requires KIND 'lib' or 'bin'" ;;
+    lib | bin | class) ;;
+    *) die "${EXIT_USAGE}" "generate requires KIND 'lib', 'bin' or 'class'" ;;
   esac
   [[ -n "${name}" ]] || die "${EXIT_USAGE}" "generate requires a NAME"
   [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] \
@@ -57,11 +94,24 @@ cmd_generate() {
 
   [[ "${kind}" == lib || -z "${linkage}" ]] \
     || die "${EXIT_USAGE}" "--static and --shared are available for libraries"
-  if [[ -n "${cpp_namespace}" && ( "${kind}" != lib || "${extension}" != cpp ) ]]; then
-    die "${EXIT_USAGE}" "--namespace is available for C++ libraries"
+  if [[ -n "${cpp_namespace}" ]] \
+    && { [[ "${kind}" == lib && "${extension}" == cpp ]] || [[ "${kind}" == class ]]; }; then
+    : # accepted for C++ libraries and classes
+  elif [[ -n "${cpp_namespace}" ]]; then
+    die "${EXIT_USAGE}" "--namespace is available for C++ libraries and classes"
   fi
 
   manifest_load
+  if [[ "${kind}" == class ]]; then
+    validate_cpp_identifier "${name}" "class name"
+    if [[ -z "${cpp_namespace}" ]]; then
+      cpp_namespace=$(workspace_application_namespace) \
+        || die "${EXIT_USAGE}" "could not read the workspace project name"
+    fi
+    validate_cpp_namespace "${cpp_namespace}"
+    generate_class "${name}" "${class_path[0]:-}" "${cpp_namespace}"
+    return $?
+  fi
   if [[ "${kind}" == lib && "${extension}" == cpp ]]; then
     validate_cpp_identifier "${name}" "class name"
     if [[ -z "${cpp_namespace}" ]]; then

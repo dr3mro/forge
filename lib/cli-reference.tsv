@@ -38,12 +38,14 @@ command	fmt	fmt [--check]	Format C and C++ sources with clang-format
 example	fmt	forge fmt --check
 command	metadata	metadata [--format json]	Emit stable project metadata as JSON
 example	metadata	forge metadata --format json
-command	generate	generate lib|bin NAME [OPTIONS]	Scaffold a workspace member and sync
+command	generate	generate lib|bin|class NAME [OPTIONS]	Scaffold a workspace member or a standalone class
 example	generate	forge generate lib widget --c
 command	generate lib	generate lib NAME [OPTIONS]	Create a C or C++ library member
 example	generate lib	forge generate lib widget --c
 command	generate bin	generate bin NAME [--cpp]	Create a C++ application member
 example	generate bin	forge generate bin worker
+command	generate class	generate class NAME [PATH] [--namespace NAME]	Create a C++ class pair in PATH (default: current directory)
+example	generate class	forge generate class Point src/geometry
 command	workflow	workflow [SUBCOMMAND]	Manage the generated CI workflow
 example	workflow	forge workflow init
 command	workflow init	workflow init	Create a GitHub Actions template
@@ -130,6 +132,7 @@ option	metadata	--format FORMAT	Select the metadata output format	json
 option	generate lib	--c	Generate C source and a C-compatible header
 option	generate lib	--cpp	Generate C++ sources (default)
 option	generate lib	--namespace NAME	Set the C++ library namespace (defaults to the root project name)
+option	generate class	--namespace NAME	Set the C++ namespace (defaults to the root project name)
 option	generate bin	--cpp	Generate C++ sources
 example	new	forge new hello --defaults --version 1.2.3
 example	build	forge build --release --target hello
