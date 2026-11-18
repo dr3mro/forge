@@ -7,8 +7,8 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Commands discovered | build, run, watch, test (sanitizer paths) |
 | Scenarios executed | Full Bats suite (201 tests) + focused probes |
 | Passed | 201 (final clean run) |
-| Failed | 0 (final); 5 defects found and fixed during the campaign |
-| Confirmed bugs | 5 (1 high, 1 medium, 3 low) |
+| Failed | 0 (final); 6 defects found and fixed during the campaign |
+| Confirmed bugs | 6 (1 high, 2 medium, 3 low) |
 | Critical / High | 0 / 1 |
 | Platforms tested | macOS (local) |
 
@@ -110,6 +110,25 @@ QA summary — iteration 1 (sanitizer build/run slice)
 **Fix:** add `workspace_application_cppstd()` mirroring `workspace_application_namespace()`, and pass the root value to `scaffold_project`.  
 **Regression test:** `generated workspace members inherit the root C++ standard`.  
 **Verification:** focused suite ok 3; full suite 202/202.
+
+## BUG-006 — `clean` left dangling compilation database links
+
+**Severity:** Medium  
+**Category:** Filesystem / State  
+**Status:** Fixed — verified locally (207/207 Bats, ShellCheck clean)  
+**Reproducibility:** Always
+
+**Summary:** After `forge clean --profile debug` or `forge clean --all`, the managed `target/compile_commands.json` and root `compile_commands.json` symlinks remained, pointing at the deleted build. IDE tooling (clangd) saw a broken link.
+
+**Steps to reproduce:** build a project, run `forge clean --all --yes`, then inspect `target/compile_commands.json`.
+
+**Expected:** Forge-owned links are removed with the build they publish.  
+**Actual:** both symlinks remained dangling; unrelated files under `target/` were preserved.
+
+**Evidence:** disposable probe showed `compile_commands.json -> debug/compile_commands.json` after `clean --all` deleted `target/debug`.  
+**Root cause:** `cmd_clean` only removed build directories; `link_compile_commands()` had no cleanup counterpart.  
+**Fix:** add `prune_compile_commands_links()` in `lib/cmake.sh`, called after successful deletion. It removes only symlinks with Forge-owned destinations that resolve inside `target/` and no longer exist; regular files and unexpected symlinks are untouched.  
+**Regression tests:** extended `clean dry-run preserves...` and added `clean --all preserves unrelated target files and prunes stale database links`.
 
 ## Unverified risks
 

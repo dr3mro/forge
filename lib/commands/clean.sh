@@ -13,7 +13,7 @@ _clean_safe_dir() {
 
 # Remove selected build directories after validating their paths.
 cmd_clean() {
-  local profile="" all=0 rc=0
+  local profile="" all=0 rc=0 removed=0
   while (( $# > 0 )); do
     case "$1" in
       --profile) profile="${2:-}"; [[ -n "${profile}" ]] || die "${EXIT_USAGE}" "--profile requires a value"; shift 2 ;;
@@ -72,9 +72,13 @@ cmd_clean() {
     else
       progress "Removing ${d}"
       rm -rf -- "${d}" || die "${EXIT_OTHER}" "could not delete ${d}"
+      removed=1
       progress_finish
       out "deleted ${d#"${FORGE_ROOT}"/}"
     fi
   done
+  if (( removed )) && (( rc == 0 )); then
+    prune_compile_commands_links
+  fi
   return "${rc}"
 }

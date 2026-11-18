@@ -78,4 +78,11 @@
 
 - QA probe confirmed `forge watch --sanitize address` rebuilds and restarts inside `target/sanitizers/address/debug` after a source edit, and exits 130 on Ctrl-C.
 - Added an integration regression test in `tests/integration/01_build.bats` covering first run, source-triggered restart, sanitizer build path and interrupt status. No product code change needed.
-- Verification: `shellcheck_exit=0`, `1..206`, `bats_exit=0` — 206/206 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..206`, `bats_exit=0` — 206/206 green locally. Committed and pushed as `7ec5446`.
+
+### Next task — clean leaves dangling compilation database links (complete, verified)
+
+- QA probe found `target/compile_commands.json` and the root link dangling after `clean --all`, while an unrelated `target/user-notes.txt` was correctly preserved.
+- Added `prune_compile_commands_links()` in `lib/cmake.sh` and called it after successful deletions in `cmd_clean`. It only removes Forge-patterned symlinks resolving under `target/` that no longer exist.
+- Extended the profile-clean test and added a `clean --all` test asserting both links are gone and user files survive (BUG-006).
+- Verification: `shellcheck_exit=0`, `1..207`, `bats_exit=0` — 207/207 green locally. Commit/push pending.

@@ -242,6 +242,21 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"deleted $built"* ]]
   [ ! -e "$built" ]
+  [ ! -e target/compile_commands.json ]
+  [ ! -e compile_commands.json ]
+}
+
+@test "clean --all preserves unrelated target files and prunes stale database links" {
+  run_forge --no-color build >/dev/null
+  [ "$status" -eq 0 ]
+  [ -L target/compile_commands.json ]
+  echo 'keep me' > target/user-notes.txt
+  run_forge --no-color clean --all --yes >/dev/null
+  [ "$status" -eq 0 ]
+  [ ! -e target/debug ]
+  [ ! -e target/compile_commands.json ]
+  [ ! -e compile_commands.json ]
+  [ "$(cat target/user-notes.txt)" = "keep me" ]
 }
 
 @test "generated C and C++ libraries inherit attribution and build in the same workspace" {

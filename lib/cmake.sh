@@ -750,3 +750,31 @@ if not publish(root / name, f"target/{name}", f"target/{owned_pattern}", force):
     sys.exit(f"leaving user-owned {root / name} in place (use --link-compile-commands to replace it)")
 PYTHON
 }
+
+# Drop Forge-owned compilation database links left dangling by a clean.
+# Regular files and unexpected symlinks are never removed.
+prune_compile_commands_links() {
+  python3 - "${FORGE_ROOT}" <<'PYTHON' \
+    || warn "could not prune stale compile_commands.json links"
+import os
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+target = root / "target"
+name = "compile_commands.json"
+profile = re.compile(r"(?:debug|release|[A-Za-z_][A-Za-z0-9_-]*-[0-9a-f]{12})/" + re.escape(name))
+
+for link in (target / name, root / name):
+    if not link.is_symlink():
+        continue
+    destination = os.readlink(link)
+    if destination != f"target/{name}" and not profile.fullmatch(destination):
+        continue
+    resolved = (link.parent / destination).resolve()
+    if not resolved.is_relative_to(target) or resolved.exists():
+        continue
+    link.unlink()
+PYTHON
+}
