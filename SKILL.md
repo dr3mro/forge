@@ -300,6 +300,12 @@ GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
   `user.cmake`; toolchain options that must precede `project()` belong in a
   preset or `forge build --toolchain`. See README "Generated CMake layout",
   `docs/ownership.md`, and `docs/index.html`.
+- Generated root `CMakeLists.txt` enables Cargo-style Clang diagnostics when
+  `FORGE_CLANG_DIAGNOSTICS` (default ON, declared after `user.cmake` so it stays
+  overridable) and a Clang C/CXX compiler are in use: color, warning names,
+  include stacks, template trees, `-Wall -Wextra -Wpedantic`, and
+  `-ferror-limit=3`. Root `add_compile_options` is inherited by workspace
+  members added later; non-Clang compilers are untouched.
 
 ```bash
 cd /Users/amr/Repos/projector

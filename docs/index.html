@@ -550,7 +550,10 @@ press Tab for the next Git option.</p>
 <p>Dependencies use modules such as <code>cmake/deps/fmt.cmake</code>.
 Set defaults in the <code>[cmake.variables]</code> table in <code>Forge.toml</code>.
 The project’s <code>user.cmake</code> loads after those defaults and before
-dependencies and targets. Forge preserves it during sync.</p>
+dependencies and targets. Forge preserves it during sync. Clang builds get
+Cargo-style diagnostics by default; set <code>FORGE_CLANG_DIAGNOSTICS</code>
+to <code>OFF</code> in <code>user.cmake</code> to opt out. clangd and
+clang-tidy can consume the generated compilation database.</p>
 <pre>[cmake.variables]
 CMAKE_CXX_STANDARD = 23
 BUILD_TESTING = false</pre></article>

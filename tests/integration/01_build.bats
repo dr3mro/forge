@@ -600,6 +600,18 @@ CPP
   [ "$status" -eq 0 ]
 }
 
+@test "Clang diagnostics are active in a real build and user.cmake can opt out" {
+  CC=clang CXX=clang++ run_forge --no-color build
+  [ "$status" -eq 0 ]
+  [ -f compile_commands.json ]
+  grep -q -- '-fdiagnostics-show-template-tree' compile_commands.json
+
+  printf 'set(FORGE_CLANG_DIAGNOSTICS OFF)\n' > user.cmake
+  CC=clang CXX=clang++ run_forge --no-color build
+  [ "$status" -eq 0 ]
+  ! grep -q -- '-fdiagnostics-show-template-tree' compile_commands.json
+}
+
 @test "watch rebuilds after a source edit and stops the previous application" {
   run_forge watch --dry-run --bin hello -- example
   [ "$status" -eq 0 ]

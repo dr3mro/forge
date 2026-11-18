@@ -258,6 +258,14 @@ Sync preserves this file. Use `cmake_language(DEFER CALL ...)` for changes
 that require targets to exist. Set compiler and toolchain options that
 CMake needs before `project()` through a preset or `forge build --toolchain`.
 
+Clang builds enable Cargo-style diagnostics by default: colored output,
+warning names and notes, include stacks, template diff trees, strict
+`-Wall -Wextra -Wpedantic` checks, and a three-error limit. Set
+`FORGE_CLANG_DIAGNOSTICS` to `OFF` in `user.cmake`, or pass
+`-DFORGE_CLANG_DIAGNOSTICS=OFF`, to opt out. Other compilers are unaffected.
+For inline editor diagnostics and automatic fixes, point clangd at the
+generated `compile_commands.json`; clang-tidy can use the same database.
+
 ## Watch mode
 
 `forge watch` builds and runs the selected application. It stops the old

@@ -24,6 +24,25 @@ load ../test_helper
   cd "$old"; rm -rf "$dir"
 }
 
+@test "new scaffolds Cargo-style Clang diagnostics in the root CMakeLists" {
+  local dir="${BATS_TMPDIR}/forge-diag-$$" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new hello --defaults
+  [ "$status" -eq 0 ]
+  cd hello
+  local flag
+  for flag in -fcolor-diagnostics -fdiagnostics-show-option \
+    -fdiagnostics-show-note-include-stack -ferror-limit=3 \
+    -fno-elide-type -fdiagnostics-show-template-tree \
+    -Wall -Wextra -Wpedantic; do
+    grep -Fq -- "$flag" CMakeLists.txt
+  done
+  grep -Fq 'option(FORGE_CLANG_DIAGNOSTICS' CMakeLists.txt
+  run_forge --no-color sync --check
+  [ "$status" -eq 0 ]
+  cd "$old"; rm -rf "$dir"
+}
+
 @test "new --lib scaffolds a library with header and linked test" {
   local dir="${BATS_TMPDIR}/forge-new-lib-$$" old="$PWD"
   mkdir -p "$dir"; cd "$dir"

@@ -73,6 +73,21 @@ project(${name} VERSION \${forge_version} LANGUAGES ${languages})
 include(cmake/ProjectOptions.cmake)
 forge_project_options()
 include(user.cmake OPTIONAL)
+option(FORGE_CLANG_DIAGNOSTICS "Enable Cargo-style Clang diagnostics" ON)
+if(FORGE_CLANG_DIAGNOSTICS AND
+   (CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+  add_compile_options(
+    -fcolor-diagnostics
+    -fdiagnostics-show-option
+    -fdiagnostics-show-note-include-stack
+    -ferror-limit=3
+    -fno-elide-type
+    -fdiagnostics-show-template-tree
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endif()
 include(cmake/VersionSource.cmake)
 forge_configure_version_source()
 include(CTest)
