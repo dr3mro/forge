@@ -35,20 +35,32 @@ def snapshot(root):
     return files
 
 
+def signal_child(child, sig):
+    """Signal the child's process group, falling back to the child itself.
+
+    Some macOS runners reject killpg for a reparented or already-reaped group
+    with EPERM. Signaling the tracked process directly is still permitted and
+    keeps the watcher alive instead of crashing on a source change.
+    """
+    try:
+        os.killpg(child.pid, sig)
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        try:
+            child.send_signal(sig)
+        except ProcessLookupError:
+            pass
+
+
 def stop(child):
     if child.poll() is not None:
         return
-    try:
-        os.killpg(child.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+    signal_child(child, signal.SIGTERM)
     try:
         child.wait(timeout=3)
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(child.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        signal_child(child, signal.SIGKILL)
         child.wait()
 
 

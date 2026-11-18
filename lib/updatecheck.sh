@@ -5,6 +5,20 @@
 #         FORCE_UPDATE_CHECK (test hook), XDG_CACHE_HOME/HOME.
 # Outputs: an optional notice on stderr. No manifest or project side effects.
 
+# Run a remote Git query with a bounded wait. `timeout` is not present on every
+# supported macOS runner, so fall back to gtimeout and finally to Git's own
+# noninteractive behavior instead of silently skipping the update check.
+_update_check_ls_remote() {
+  local source="$1"
+  if command -v timeout >/dev/null 2>&1 && timeout 0 true 2>/dev/null; then
+    GIT_TERMINAL_PROMPT=0 timeout 6 git ls-remote --tags --refs "${source}" 2>/dev/null
+  elif command -v gtimeout >/dev/null 2>&1 && gtimeout 0 true 2>/dev/null; then
+    GIT_TERMINAL_PROMPT=0 gtimeout 6 git ls-remote --tags --refs "${source}" 2>/dev/null
+  else
+    GIT_TERMINAL_PROMPT=0 git ls-remote --tags --refs "${source}" 2>/dev/null
+  fi
+}
+
 # Check the installation's Git source for a newer release, at most once per
 # day. Runs only for interactive terminals so machine-readable output stays
 # clean. FORCE_UPDATE_CHECK=1 bypasses the TTY gate for tests.
@@ -31,7 +45,7 @@ update_check_periodic() {
   [[ "${source}" == http* || "${source}" == git@* ]] || return 0
   IFS= read -r installed < "${FORGE_HOME}/.git/forge-version" || installed=''
 
-  latest=$(timeout 6 git ls-remote --tags --refs "${source}" 2>/dev/null \
+  latest=$(_update_check_ls_remote "${source}" \
     | awk -F/ '{t=$NF; sub(/^v/, "", t); if (t ~ /^[0-9]/) print t}' \
     | sort -V | tail -1)
   [[ -n "${latest}" && "${latest}" != "${installed}" ]] || return 0
