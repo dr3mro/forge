@@ -203,10 +203,10 @@ subcommand.
 | `doctor` | `forge doctor` | Check the local toolchain |
 | `new` | `forge new --name hello --git` | Prompt for details and scaffold a directory |
 | `init` | `forge init --name widget --lib --defaults` | Prompt for project details in the current directory |
-| `build` | `forge build --debug-target hello` | Configure and compile a project or target |
+| `build` | `forge build --debug-target hello` | Configure and compile; `--sanitize` and `--clean-first` supported |
 | `run` | `forge run --build --release --bin hello -- --version` | Run an executable, optionally building it first |
 | `watch` | `forge watch --bin hello -- --version` | Rebuild and run when workspace inputs change |
-| `test` | `forge test smoke --repeat 3` | Run CTest with a filter, repeat count, or sanitizer |
+| `test` | `forge test smoke --repeat 3` | Run CTest with a filter, repeat count, sanitizer, or `--list` |
 | `clean` | `forge clean --profile release --dry-run` | Remove Forge-owned build directories |
 | `add` | `forge add fmt/12.1.0 --conan --target hello` | Declare a dependency and offer to sync the workspace |
 | `remove` | `forge remove widget --lib` | Remove a dependency or detach a library, then sync |
@@ -219,8 +219,8 @@ subcommand.
 | `fmt` | `forge fmt --check` | Format C and C++ sources with clang-format |
 | `metadata` | `forge metadata --format json` | Emit stable project metadata as JSON |
 | `generate` | `forge generate lib widget --c` | Scaffold a workspace member or a standalone class |
-| `generate lib` | `forge generate lib widget --c` | Create a C or C++ library member |
-| `generate bin` | `forge generate bin worker` | Create a C++ application member |
+| `generate lib` | `forge generate lib widget --c` | Create a C or C++ library member; `--cppstd` overrides the root standard |
+| `generate bin` | `forge generate bin worker` | Create a C++ application member; `--cppstd` overrides the root standard |
 | `generate class` | `forge generate class Point src/geometry` | Create a C++ class pair in PATH (default: current directory) |
 | `workflow` | `forge workflow init` | Manage the generated CI workflow |
 | `workflow init` | `forge workflow init --dry-run` | Create a GitHub Actions template |
