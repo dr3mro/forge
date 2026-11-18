@@ -4,6 +4,13 @@
 
 def err($m): $m;
 def ident: (type == "string") and test("^[A-Za-z_][A-Za-z0-9_]*$");
+# CMake reserves these target names; a project/target named after one fails
+# at configure time with "The target name ... is reserved or not valid".
+def reserved:
+  (type == "string")
+  and (ascii_downcase | IN("all", "clean", "help", "install", "test", "package",
+                          "package_source", "edit_cache", "rebuild_cache",
+                          "list_install_components", "continuous", "experimental", "nightly"));
 def no_meta:
   . as $s
   | ["$", "`", ";", "&", "|", "<", ">", "(", ")", "{", "}", "*", "?", "[", "]", "'", "\"", "\\", "\n", "\r"]
@@ -153,6 +160,7 @@ def check_dep($n; $d):
    else
      (if (.package | has("name") | not) then err("package: missing 'name'")
       elif (.package.name | ident | not) then err("package: invalid name")
+      elif (.package.name | reserved) then err("package: reserved CMake target name '" + .package.name + "'")
       else empty end),
      (if (.package | has("version") | not) then err("package: missing 'version'")
       elif (.package.version | type) != "string" then err("package: 'version' must be a string")

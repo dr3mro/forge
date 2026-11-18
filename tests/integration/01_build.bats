@@ -553,6 +553,11 @@ CMAKE
   grep -Fxq '# keep this root comment' CMakeLists.txt
   ! grep -Eq 'set\(CMAKE_CXX_STANDARD|configure_file\(|add_(library|executable|test)\(' CMakeLists.txt
   for file in cmake/*.cmake cmake/deps/helper.cmake; do
+    # ProjectOptionsUser.cmake and user.cmake are plain setting files, not
+    # function modules: sync renders bracket-quoted set(...) lines into them.
+    case "$file" in
+      cmake/ProjectOptionsUser.cmake | cmake/user.cmake) continue ;;
+    esac
     [ "$(grep -c '^function(' "$file")" -eq 1 ]
   done
   grep -Fq 'include(cmake/deps/helper.cmake)' cmake/Dependencies.cmake
@@ -566,13 +571,19 @@ CMAKE
 }
 
 @test "CMake manifest variables are literal defaults and user.cmake takes precedence" {
-  cat >> Forge.toml <<'TOML'
-
-[cmake.variables]
-CMAKE_CXX_STANDARD = 23
-BUILD_TESTING = false
-FORGE_LITERAL = 'text ]=] ${UNCHANGED}'
-TOML
+  # New scaffolds already seed [cmake.variables] (codesign/debug defaults),
+  # so insert the keys into that existing table instead of redeclaring it.
+  python3 - <<'PY'
+from pathlib import Path
+p = Path('Forge.toml')
+s = p.read_text()
+needle = '[cmake.variables]\n'
+addition = ("CMAKE_CXX_STANDARD = 23\n"
+            "BUILD_TESTING = false\n"
+            "FORGE_LITERAL = 'text ]=] ${UNCHANGED}'\n")
+assert needle in s
+p.write_text(s.replace(needle, needle + addition, 1))
+PY
   cat > cmake/user.cmake <<'CMAKE'
 if(NOT FORGE_LITERAL STREQUAL [==[text ]=] ${UNCHANGED}]==])
   message(FATAL_ERROR "Manifest string was altered")

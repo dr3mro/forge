@@ -365,6 +365,32 @@ GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
   failures (integration/01_build.bats tests 159 and 160, legacy CMake sync and
   manifest-variable build) reproduce identically on pristine HEAD and are
   unrelated to the help work.
+- A full QA campaign (`BUGS.md`) found and fixed four defects:
+  BUG-001 `deps status` reported a corrupt `conan.lock` as `present` — `conan_lock_valid`
+  in `lib/conan.sh` parses the lock, `deps_status` emits `invalid` with exit 4, and
+  `conan_lock_create` regenerates a corrupt lock instead of passing it to Conan.
+  BUG-002 adding a Git/path dependency after a Conan shortcut linked it only to
+  the test target — `cmd_add` in `lib/commands/add.sh` now also links such deps
+  into targets that already have explicit links. BUG-003 CMake-reserved names
+  (`clean`, `test`, `all`, …) are rejected at scaffold time in
+  `lib/commands/project.sh` and `lib/schema.jq`. BUG-004 fresh scaffolds failed
+  `forge fmt --check` — `scaffold_source_file` no longer emits a trailing space
+  on the empty author line, and `main.cpp.tpl`/`class.*.tpl` match clang-format.
+  The two prior integration failures were outdated tests: 159 skipped plain
+  setting files (`ProjectOptionsUser.cmake`, `user.cmake`) in the one-function
+  assertion, and 160 inserted keys into the existing `[cmake.variables]` table
+  instead of redeclaring it.
+- The four `TODO.md` items were implemented. (1) `lib/updatecheck.sh` runs a
+  once-per-day interactive update check (24 h cache in `XDG_CACHE_HOME/forge`,
+  `FORCE_UPDATE_CHECK` test hook, skips offline/quiet/dry-run). (2) `offer_fix`
+  in `lib/core.sh` prompts `[y/N]` (or auto-runs with `--yes`) to execute a
+  needed `sync`/`deps lock` from build and Conan error paths. (3) New scaffolds
+  seed user-owned `.clang-format`, `.clang-tidy`, `.clangd` and `cppcheck.supp`
+  from Valhalla-server-derived templates plus an optional clang-tidy/cppcheck
+  setup in `cmake/user.cmake`; `forge fmt` uses `--style=file` when present.
+  (4) The published website URL `https://dr3mro.github.io/forge/` is used in
+  README and help, with a GitHub Pages workflow in `.github/workflows/pages.yml`.
+  Full suite is now 191/191 Bats tests green with ShellCheck clean.
 
 ```bash
 cd /Users/amr/Repos/forge

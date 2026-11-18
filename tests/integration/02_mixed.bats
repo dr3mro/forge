@@ -259,3 +259,22 @@ PY
   [ "$status" -eq 4 ]
   [[ "$output" == *'conan.lock is stale'* ]]
 }
+
+
+@test "Git dependency added after a Conan shortcut still links the application" {
+  run_forge --no-color add --yes fmt --conan
+  [ "$status" -eq 0 ]
+  run_forge --no-color add --yes gdep --source git --url "file://${GITREPO}" \
+    --rev "${SHA}" --cmake-target gdep::gdep
+  [ "$status" -eq 0 ]
+  grep -Fq 'gdep' <<<"$(grep -A3 '^\[\[bin\]\]' Forge.toml)"
+  grep -Fq 'target_link_libraries(mixed PRIVATE gdep::gdep' cmake/Targets.cmake
+
+  cat > src/main.cpp <<'CPP'
+#include <fmt/core.h>
+#include "gdep.hpp"
+int main() { return fmt::format("{}", gdep_value()).size() > 0 ? 0 : 1; }
+CPP
+  run_forge --no-color build
+  [ "$status" -eq 0 ]
+}

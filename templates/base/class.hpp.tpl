@@ -3,17 +3,16 @@
 namespace {{NAMESPACE}} {
 
 class {{NAME}} {
- public:
+public:
   {{NAME}}();
-  {{NAME}}(const {{NAME}}&);
-  {{NAME}}({{NAME}}&&) noexcept;
-  {{NAME}}& operator=(const {{NAME}}&);
-  {{NAME}}& operator=({{NAME}}&&) noexcept;
+  {{NAME}}(const {{NAME}} &);
+  {{NAME}}({{NAME}} &&) noexcept;
+  {{NAME}} &operator=(const {{NAME}} &);
+  {{NAME}} &operator=({{NAME}} &&) noexcept;
   virtual ~{{NAME}}();
 
- protected:
-
- private:
+protected:
+private:
 };
 
-}  // namespace {{NAMESPACE}}
+} // namespace {{NAMESPACE}}

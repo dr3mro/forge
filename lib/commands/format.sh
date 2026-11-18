@@ -47,14 +47,17 @@ cmd_fmt() {
     status "dry-run: would ${action} ${#unique[@]} file(s)"
     return "${EXIT_OK}"
   fi
+  local -a style_args=()
+  [[ -f "${FORGE_ROOT}/.clang-format" ]] && style_args=(--style=file)
+
   progress "Running clang-format"
   if (( check )); then
-    (cd "${FORGE_ROOT}" && clang-format --dry-run --Werror "${unique[@]}") \
+    (cd "${FORGE_ROOT}" && clang-format "${style_args[@]}" --dry-run --Werror "${unique[@]}") \
       || die "${EXIT_BUILD}" "format check failed"
     progress_finish
     out "format check ok (${#unique[@]} files)"
   else
-    (cd "${FORGE_ROOT}" && clang-format -i "${unique[@]}") \
+    (cd "${FORGE_ROOT}" && clang-format "${style_args[@]}" -i "${unique[@]}") \
       || die "${EXIT_OTHER}" "clang-format failed"
     progress_finish
     out "formatted ${#unique[@]} file(s)"

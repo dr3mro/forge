@@ -141,7 +141,7 @@ cmd_help() {
     out ""
     out "$(ui_dim '────────────────────────────────────────────────────────────────────')"
     reference_tip "Run $(ui_green 'forge <command> --help') for every option and example of a verb."
-    reference_more "docs/commands.md · docs/index.html"
+    reference_more "https://dr3mro.github.io/forge/ · docs/commands.md"
     out "  $(ui_dim 'Exit codes:') 0 ok · 1 error · 2 usage · 3 missing tool"
     out "              $(ui_dim '4 dependency/lock · 5 build/test · 6 conflict')"
     return
@@ -186,7 +186,7 @@ cmd_help() {
   out ""
   out "$(ui_dim '────────────────────────────────────────────────────────────────────')"
   reference_tip "Add $(ui_green '--yes') for non-interactive use where supported."
-  reference_more "forge help · forge <command> --help · docs/commands.md"
+  reference_more "forge help · forge <command> --help · https://dr3mro.github.io/forge/"
 }
 
 # Resolve the deepest known command scope from positionals before --help.

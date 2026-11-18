@@ -90,7 +90,12 @@ build_project() {
     fail "manifest/CMake drift detected:"
     local m
     for m in "${FORGE_SYNC_MESSAGES[@]}"; do fail "  ${m}"; done
-    die "${EXIT_CONFLICT}" "run 'forge sync --diff', then 'forge sync --apply --yes'"
+    if offer_fix "Sync generated files and retry the build?" sync_apply; then
+      progress_finish
+      rc=0
+    else
+      die "${EXIT_CONFLICT}" "run 'forge sync --diff', then 'forge sync --apply --yes'"
+    fi
   fi
   (( rc == 0 )) || die "${EXIT_CONFLICT}" "could not check Forge sync state"
   progress_finish

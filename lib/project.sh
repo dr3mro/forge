@@ -27,8 +27,11 @@ forge_render_template() {
 # Render one source or header with editable purpose and author fields.
 scaffold_source_file() {
   local template="$1" destination="$2" name="$3" author_line="$4" cpp_namespace="${5:-$3}"
+  local author_header='//'
+  # Avoid a trailing space on the empty-author header: clang-format flags it.
+  [[ -z "${author_line}" ]] || author_header="// Author: ${author_line}"
   {
-    printf '// Author: %s\n//\n// Purpose:\n\n' "${author_line}"
+    printf '%s\n//\n// Purpose:\n\n' "${author_header}"
     forge_render_template "${template}" "NAME=${name}" "NAMESPACE=${cpp_namespace}"
   } > "${destination}" || die "${EXIT_OTHER}" "could not write ${destination}"
 }
@@ -241,14 +244,19 @@ scaffold_project() {
   manifest_load
   progress "Generating CMake files and recording sync state"
   mkdir -p "${dir}/cmake" || die "${EXIT_OTHER}" "could not create the cmake directory"
-  if [[ ! -e "${dir}/cmake/user.cmake" && ! -L "${dir}/cmake/user.cmake" ]]; then
-    (set -o noclobber; printf '# Set local CMake overrides here. Forge sync preserves this file.\n' > "${dir}/cmake/user.cmake") \
-      || die "${EXIT_OTHER}" "could not create cmake/user.cmake"
-  fi
-  if [[ ! -e "${dir}/entitlements.plist" && ! -L "${dir}/entitlements.plist" ]]; then
-    (set -o noclobber; cp "${tpl}/entitlements.plist.tpl" "${dir}/entitlements.plist") \
-      || die "${EXIT_OTHER}" "could not create entitlements.plist"
-  fi
+  # Tool configuration files are user-owned seeds: never overwrite an edit.
+  local config_file
+  for config_file in 'cmake/user.cmake|user.cmake.tpl' \
+    'entitlements.plist|entitlements.plist.tpl' \
+    '.clang-format|clang-format.tpl' \
+    '.clang-tidy|clang-tidy.tpl' \
+    '.clangd|clangd.tpl' \
+    'cppcheck.supp|cppcheck-supp.tpl'; do
+    local dest="${config_file%%|*}" tpl_file="${config_file#*|}"
+    [[ ! -e "${dir}/${dest}" && ! -L "${dir}/${dest}" ]] || continue
+    (set -o noclobber; cp "${tpl}/${tpl_file}" "${dir}/${dest}") \
+      || die "${EXIT_OTHER}" "could not create ${dest}"
+  done
   cmake_render_all "${dir}" && state_init && state_record_generated \
     || die "${EXIT_OTHER}" "could not generate CMake files or record sync state"
   progress_finish

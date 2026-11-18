@@ -355,3 +355,44 @@ load ../test_helper
     unlink "project/$dir"
   done
 }
+
+
+@test "new rejects CMake-reserved project names" {
+  local dir="${BATS_TMPDIR}/forge-reserved-$$-${RANDOM}" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  local name
+  for name in clean test all install package; do
+    run_forge --no-color new "$name" --defaults
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"reserved CMake target name"* ]]
+    [ ! -e "$name" ]
+  done
+  cd "$old"
+  rm -rf "$dir"
+}
+
+
+@test "new seeds clang tooling configuration as user-owned files" {
+  local dir="${BATS_TMPDIR}/forge-tools-$$-${RANDOM}" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new tooled --defaults
+  [ "$status" -eq 0 ]
+  cd tooled
+  for f in .clang-format .clang-tidy .clangd cppcheck.supp cmake/user.cmake; do
+    [ -f "$f" ] || fail "missing $f"
+  done
+  grep -Fq 'FORGE_CLANG_TIDY' cmake/user.cmake
+  grep -Fq 'FORGE_CPPCHECK' cmake/user.cmake
+  run_forge fmt --check
+  [ "$status" -eq 0 ]
+  # sync does not track user-owned tool configuration
+  jq -e '.files | has(".clang-format") | not' .forge/state.json
+  # a second scaffold in the same directory keeps the user's edits
+  printf '# custom\n' >> .clang-format
+  cp .clang-format "$BATS_TEST_TMPDIR/format.before"
+  cd ..
+  run_forge --no-color init --name tooled --defaults
+  [ "$status" -eq 6 ] || true
+  cd "$old"
+  rm -rf "$dir"
+}

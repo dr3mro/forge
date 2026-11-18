@@ -18,6 +18,8 @@ source "${FORGE_LIB}/core.sh"
 source "${FORGE_LIB}/cli-reference.sh"
 # shellcheck source=diagnostics.sh
 source "${FORGE_LIB}/diagnostics.sh"
+# shellcheck source=updatecheck.sh
+source "${FORGE_LIB}/updatecheck.sh"
 # shellcheck source=manifest.sh
 source "${FORGE_LIB}/manifest.sh"
 # shellcheck source=workspace.sh

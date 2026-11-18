@@ -288,3 +288,14 @@ teardown() {
   [ "$status" -eq 0 ]
   cmp user.before cmake/user.cmake
 }
+
+
+@test "build with --yes offers to sync when drift is present" {
+  sed -i '' 's/cppstd = "20"/cppstd = "17"/' Forge.toml 2>/dev/null \
+    || sed -i 's/cppstd = "20"/cppstd = "17"/' Forge.toml
+  run_forge --no-color --yes build
+  [ "$status" -eq 0 ]
+  grep -Fq 'set(CMAKE_CXX_STANDARD 17 PARENT_SCOPE)' cmake/ProjectOptions.cmake
+  run_forge --no-color sync --check
+  [ "$status" -eq 0 ]
+}

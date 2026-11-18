@@ -145,9 +145,15 @@ deps_status() {
                 else "path" end)
       })]')
   local lock_state="absent" drift="clean"
-  [[ -f "${FORGE_ROOT}/conan.lock" ]] && lock_state="present"
-  if [[ -f "${FORGE_ROOT}/conan.lock" ]] && conan_lock_stale; then
-    lock_state="stale"
+  if [[ -f "${FORGE_ROOT}/conan.lock" ]]; then
+    if conan_lock_valid; then
+      lock_state="present"
+      conan_lock_stale && lock_state="stale"
+    else
+      lock_state="invalid"
+      rc="${EXIT_DEP}"
+      fail "conan.lock is not valid JSON: ${FORGE_ROOT}/conan.lock"
+    fi
   fi
   local rc_sync=0
   sync_detect_drift || rc_sync=$?

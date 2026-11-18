@@ -79,6 +79,13 @@ project_create() {
   name="${name:-${default_name}}"
   [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] \
     || die "${EXIT_USAGE}" "invalid project name '${name}' (use letters, digits, underscore)"
+  # CMake reserves several target names; using one as the project name makes
+  # the generated CMakeLists.txt fail at configure time.
+  case "${name,,}" in
+    all | clean | help | install | test | package | package_source | edit_cache | rebuild_cache | list_install_components | continuous | experimental | nightly)
+      die "${EXIT_USAGE}" "invalid project name '${name}' (reserved CMake target name; choose another)"
+      ;;
+  esac
   if [[ "${action}" == new ]]; then
     dir+="/${name}"
     refuse_file "${dir}"

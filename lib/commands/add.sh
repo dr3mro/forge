@@ -280,6 +280,27 @@ cmd_add() {
   [[ -z "${baseline}" ]] || status "recorded vcpkg registry baseline ${baseline} in ${root_manifest}"
 
   out "added dependency '${name}' to ${FORGE_MANIFEST_PATH}"
+
+  # Git/path dependencies have no cmake_package, so the renderer treats them
+  # as implicit links for targets with an empty links array. A target that
+  # already has explicit links (for example a Conan shortcut added earlier)
+  # would otherwise miss the new dependency, breaking mixed-project builds.
+  # Explicitly link the new dependency into every such target as well.
+  # A selected target (shortcut/vcpkg/--target) is already linked inside
+  # manifest_add_dependency, and FORGE_MANIFEST_JSON is stale at this point.
+  if [[ "${source}" == git || "${source}" == path ]] && [[ -z "${target}" ]]; then
+    local linked_target json
+    json=$(manifest_to_json "${FORGE_MANIFEST_PATH}") || return $?
+    while IFS= read -r linked_target; do
+      [[ -n "${linked_target}" ]] || continue
+      manifest_link_existing_dependency "${FORGE_MANIFEST_PATH}" "${linked_target}" "${name}" \
+        || return $?
+      out "linked '${name}' to '${linked_target}'"
+    done < <(printf '%s' "${json}" | jq -r '
+      ((.bin // []) + (.lib // []) + (.test // []))[]
+      | select(((.links // []) | length) > 0) | .name')
+  fi
+
   add_sync_dependency "${source}"
 }
 

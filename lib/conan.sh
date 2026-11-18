@@ -85,6 +85,14 @@ conan_manifest_sha() {
   sha256_str "${data}"
 }
 
+# True only when conan.lock exists and contains parseable JSON. Status output
+# must not claim a lock is healthy when the file exists but is corrupt.
+conan_lock_valid() {
+  local lock="${FORGE_ROOT}/conan.lock"
+  [[ -f "${lock}" ]] || return 1
+  jq -e . "${lock}" >/dev/null 2>&1
+}
+
 # Compare the recorded lock fingerprint with the current graph.
 conan_lock_stale() {
   local lock="${FORGE_ROOT}/conan.lock" state="${FORGE_ROOT}/.forge/state.json" recorded
@@ -117,9 +125,12 @@ conan_lock_create() {
     || die "${EXIT_OTHER}" "could not render the Conan lock recipe"
   FORGE_CONAN_REQUIREMENTS_MODE="local"
   local -a args=(lock create "${tmp_dir}/conanfile.txt" "--lockfile-out=${tmp_dir}/conan.lock")
-  if [[ -f "${lock}" ]]; then
+  if [[ -f "${lock}" ]] && conan_lock_valid; then
     args+=("--lockfile=${lock}" --lockfile-partial --lockfile-clean)
   else
+    # A corrupt lock cannot be used as input; regenerate from the recipe and
+    # let atomic_write replace it below.
+    [[ ! -f "${lock}" ]] || status "ignoring corrupt conan.lock; regenerating"
     args+=(--lockfile=)
   fi
   (( FORGE_OFFLINE )) && args+=(--build=never --no-remote)
@@ -141,13 +152,16 @@ conan_install() {
   local build_dir="$1" profile="$2" lock="${FORGE_ROOT}/conan.lock" bt
   conan_check
   [[ -f "${lock}" ]] \
-    || die "${EXIT_DEP}" "conan.lock is missing (run 'forge deps lock')"
+    || { offer_fix "Create the Conan lock and continue?" deps_lock \
+          || die "${EXIT_DEP}" "conan.lock is missing (run 'forge deps lock')"; }
   ! conan_lock_stale \
-    || die "${EXIT_DEP}" "conan.lock is stale relative to conanfile.txt (run 'forge deps lock')"
+    || { offer_fix "Refresh the stale Conan lock and continue?" deps_lock \
+          || die "${EXIT_DEP}" "conan.lock is stale relative to conanfile.txt (run 'forge deps lock')"; }
 
   local conanfile="${FORGE_ROOT}/conanfile.txt"
   [[ -f "${conanfile}" ]] \
-    || die "${EXIT_DEP}" "conanfile.txt is missing (run 'forge sync --apply')"
+    || { offer_fix "Sync generated files and continue?" sync_apply \
+          || die "${EXIT_DEP}" "conanfile.txt is missing (run 'forge sync --apply')"; }
 
   case "${profile}" in
     release | Release) bt="Release" ;;

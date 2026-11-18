@@ -189,9 +189,11 @@ completion files and symlinked startup files are preserved.
 
 ## Command reference
 
-Open the [Forge website](docs/index.html) for the searchable command reference and
-workflow examples. Use `forge COMMAND --help` for options and examples in the
-terminal, or `forge help deps pin` to open a specific subcommand.
+Open the [Forge website](https://dr3mro.github.io/forge/) for the searchable
+command reference and workflow examples. A local copy lives in
+[`docs/index.html`](docs/index.html). Use `forge COMMAND --help` for options
+and examples in the terminal, or `forge help deps pin` to open a specific
+subcommand.
 
 | Command | Example | Purpose |
 | --- | --- | --- |

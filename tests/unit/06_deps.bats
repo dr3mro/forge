@@ -226,3 +226,25 @@ PY
   [ "$status" -eq 0 ]
   grep -Fxq "rev = \"$branch_sha\"" Forge.toml
 }
+
+
+@test "deps status detects a corrupt conan.lock and deps lock repairs it" {
+  run_forge add --yes fmt --source conan --ref fmt/12.1.0 \
+    --cmake-package fmt --cmake-target fmt::fmt-header-only
+  [ "$status" -eq 0 ]
+  run_forge deps status --format json
+  [ "$status" -eq 0 ]
+  grep -Fq '"conan_lock": "present"' <<<"$output"
+
+  printf '{not valid json' > conan.lock
+  run_forge deps status --format json
+  [ "$status" -eq 4 ]
+  grep -Fq '"conan_lock": "invalid"' <<<"$output"
+  [[ "$output" == *"not valid JSON"* ]]
+
+  run_forge deps lock
+  [ "$status" -eq 0 ]
+  run_forge deps status --format json
+  [ "$status" -eq 0 ]
+  grep -Fq '"conan_lock": "present"' <<<"$output"
+}

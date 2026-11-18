@@ -51,6 +51,32 @@ die() {
   exit "${code}"
 }
 
+# Offer to run an actionable repair command instead of only printing a hint.
+# Usage: offer_fix "Prompt?" function [args...]
+# Returns 0 only when the command ran successfully. Never exits on failure,
+# so callers can still die with their original diagnostic and exit code.
+offer_fix() {
+  local prompt="$1" answer
+  shift
+  (( $# )) || return 1
+  if (( FORGE_YES )); then
+    status "running suggested fix: $*"
+    "$@" && return 0
+    return 1
+  fi
+  if [[ -t 0 ]]; then
+    printf '%s [y/N] ' "${prompt}" >&2
+    IFS= read -r answer || answer=""
+    case "${answer}" in
+      [yY] | [yY][eE][sS])
+        "$@" && return 0
+        return 1
+        ;;
+    esac
+  fi
+  return 1
+}
+
 # Write diagnostic details when verbose output is enabled.
 verbose() {
   if (( FORGE_VERBOSE )); then

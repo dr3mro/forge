@@ -14,6 +14,7 @@ forge_main() {
     return
   fi
   ui_init
+  update_check_periodic
   local -a args=("$@") cmd_args=()
   local manifest_path="" seen_cmd=0 a
 

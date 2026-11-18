@@ -118,3 +118,13 @@ teardown() {
   [[ "$output" == *"would check format for "* ]]
   cmp source.before src/main.cpp
 }
+
+
+@test "fresh scaffold and generated class pass fmt --check" {
+  run_forge fmt --check
+  [ "$status" -eq 0 ]
+  run_forge generate class Point src/geo --namespace ns
+  [ "$status" -eq 0 ]
+  run_forge fmt --check
+  [ "$status" -eq 0 ]
+}
