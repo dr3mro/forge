@@ -3,7 +3,7 @@
 | Artifact | Ownership | Update policy |
 | --- | --- | --- |
 | `Forge.toml` | User intent | `add`/`remove` edit it transactionally; ambiguous edits are refused |
-| `CMakeLists.txt`, `cmake/*.cmake` | User-owned after creation | Created once; `sync` proposes changes |
+| `CMakeLists.txt`, `cmake/*.cmake`, `cmake/deps/*/CMakeLists.txt` | User-owned after creation | Created once; `sync` proposes changes |
 | `CMakePresets.json`, `CMakeUserPresets.json` | User-owned | Same sync policy; Conan may write its own user presets |
 | `conanfile.txt` | Generated recipe with local edits preserved | Sync creates it when Conan is used and backs up an unmodified recipe when it is no longer needed |
 | `conan.lock` | Conan's | Written by `forge deps lock`; committed |
@@ -31,7 +31,9 @@ freshly rendered template:
   files are three-way merged with `git merge-file`. Clean merges are backed up
   and written atomically; conflicts write
   `.forge/proposals/<path>.patch`, exit 6 and leave the original untouched.
-  Non-interactive use requires `--yes`, which never overrides a conflict.
+  New modules are created where the path is free. When a dependency is removed,
+  sync backs up its unmodified CMake file or leaves the locally edited file in
+  place. Non-interactive use requires `--yes`, which never overrides a conflict.
 
 `forge build` never regenerates CMake. If the manifest and CMake disagree, it
 fails with exit 6 and recommends `forge sync --diff`.

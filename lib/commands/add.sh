@@ -4,7 +4,7 @@
 # Validate a dependency, edit its module manifest, and apply workspace sync.
 cmd_add() {
   local name="" source="" ref="" url="" rev="" tag="" branch="" path=""
-  local cmake_target="" cmake_package="" shortcut="" target="" port="" conan_name=""
+  local cmake_target="" cmake_package="" shortcut="" target="" port="" conan_name="" port_version=""
   local -a options=() fields=()
   while (( $# > 0 )); do
     case "$1" in
@@ -14,15 +14,26 @@ cmd_add() {
         shortcut="${1#--}"
         shift
         ;;
+      --source=*)
+        source="${1#*=}"
+        [[ -n "${source}" ]] || die "${EXIT_USAGE}" "--source requires a value"
+        shift
+        ;;
       --source | --ref | --url | --rev | --sha | --tag | --branch | --path | --cmake-target | --cmake-package | --target | --option)
         [[ -n "${2:-}" && "$2" != --* ]] || die "${EXIT_USAGE}" "$1 requires a value"
         case "$1" in
           --source) source="$2" ;;
           --ref) ref="$2" ;;
           --url) url="$2" ;;
-          --rev | --sha) rev="$2" ;;
-          --tag) tag="$2" ;;
-          --branch) branch="$2" ;;
+          --rev | --sha | --tag | --branch)
+            [[ -z "${rev}${tag}${branch}" ]] \
+              || die "${EXIT_USAGE}" "choose one Git selector: --sha, --tag or --branch"
+            case "$1" in
+              --rev | --sha) rev="$2" ;;
+              --tag) tag="$2" ;;
+              --branch) branch="$2" ;;
+            esac
+            ;;
           --path) path="$2" ;;
           --cmake-target) cmake_target="$2" ;;
           --cmake-package) cmake_package="$2" ;;
@@ -80,9 +91,15 @@ cmd_add() {
     name="${name//[.+-]/_}"
     [[ "${name}" != [0-9]* ]] || name="conan_${name}"
   elif [[ "${source}" == vcpkg ]]; then
+    if [[ "${name}" == */* ]]; then
+      port_version="${name#*/}"
+      name="${name%%/*}"
+      [[ "${port_version}" =~ ^[A-Za-z0-9][A-Za-z0-9_.+-]*(#[0-9]+)?$ ]] \
+        || die "${EXIT_USAGE}" "use PORT/VERSION or PORT/VERSION#PORT_VERSION for vcpkg"
+    fi
     [[ "${name}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || die "${EXIT_USAGE}" "invalid vcpkg port: ${name}"
     [[ -z "${ref}" && ${#options[@]} -eq 0 ]] \
-      || die "${EXIT_USAGE}" "vcpkg ports use the installed registry revision"
+      || die "${EXIT_USAGE}" "use PORT/VERSION to pin a vcpkg port"
     port="${name}"
     name="${name//-/_}"
     [[ "${name}" != [0-9]* ]] || name="vcpkg_${name}"
@@ -119,16 +136,19 @@ cmd_add() {
     target=$(add_select_target "${target}") || return $?
   fi
   if (( FORGE_DRY_RUN )) && [[ -n "${target}" ]]; then
-    status "dry-run: would add '${ref:-${port:-${name}}}' (${source}) to ${FORGE_MANIFEST_PATH} and link '${target}'"
+    local requested="${ref:-${port:-${name}}}"
+    [[ -z "${port_version}" ]] || requested="${port}/${port_version}"
+    status "dry-run: would add '${requested}' (${source}) to ${FORGE_MANIFEST_PATH} and link '${target}'"
     return "${EXIT_OK}"
   fi
   if [[ -n "${target}" ]] && mq -e --arg name "${name}" '.dependencies[$name] != null' >/dev/null; then
     local requested_options
     requested_options=$(printf '%s\n' "${options[@]}" | jq -Rn '[inputs | select(length > 0) | capture("^(?<key>[^=]+)=(?<value>.*)$")] | from_entries')
-    mq -e --arg name "${name}" --arg source "${source}" --arg ref "${ref}" --arg port "${port}" \
+    mq -e --arg name "${name}" --arg source "${source}" --arg ref "${ref}" --arg port "${port}" --arg version "${port_version}" \
       --arg imported "${cmake_target}" --arg package "${cmake_package}" --argjson options "${requested_options}" '
         .dependencies[$name] as $d
         | $d.source == $source and (($d.ref // "") == $ref) and (($d.port // "") == $port)
+        and ($version == "" or ($d.version // "") == $version)
         and ($imported == "" or $d.cmake_target == $imported)
         and ($package == "" or $d.cmake_package == $package)
         and (($d.conan_options // {} | map_values(if . == true then "True" elif . == false then "False" else tostring end)) == $options)
@@ -174,8 +194,9 @@ cmd_add() {
       && die "${EXIT_DEP}" "--offline cannot resolve a tag/branch; use 'forge deps pin' with --sha"
     url="${url:-$(mq --arg n "${name}" '(.dependencies // {})[$n].url // empty')}"
     [[ -n "${url}" ]] || die "${EXIT_USAGE}" "git dependency needs --url"
-    require_tool git
-    rev=$(fetchcontent_resolve_ref "${url}" "${tag:-${branch}}")
+    local selector=--branch
+    if [[ -n "${tag}" ]]; then selector=--tag; fi
+    rev=$(fetchcontent_resolve_ref "${url}" "${selector}" "${tag:-${branch}}")
     status "resolved ${tag:-${branch}} -> ${rev}"
   fi
 
@@ -193,10 +214,37 @@ cmd_add() {
     return "${EXIT_OK}"
   fi
 
+  local baseline="" root_manifest=""
+  if [[ -n "${port_version}" ]]; then
+    fields+=("version=${port_version}")
+    local workspace_root
+    workspace_root=$(workspace_enclosing_root "${FORGE_ROOT}") || return "${EXIT_CONFLICT}"
+    root_manifest="${workspace_root}/Forge.toml"
+    if [[ "${workspace_root}" == "${FORGE_ROOT}" ]]; then root_manifest="${FORGE_MANIFEST_PATH}"; fi
+    local root_json
+    root_json=$(manifest_to_json "${root_manifest}") || return "${EXIT_USAGE}"
+    manifest_validate_json "${root_json}" || return "${EXIT_USAGE}"
+    if [[ "$(jq -r '.build.vcpkg_baseline // empty' <<< "${root_json}")" == "" ]]; then
+      baseline=$(vcpkg_registry_baseline) || return $?
+      [[ ! -L "${root_manifest}" ]] || die "${EXIT_CONFLICT}" "refusing to edit symlinked ${root_manifest}"
+      sync_check_destinations "${root_manifest%/*}"
+      if [[ "${root_manifest}" == "${FORGE_MANIFEST_PATH}" ]]; then
+        fields+=("vcpkg_baseline=${baseline}")
+      else
+        # Check the root edit before writing the member manifest.
+        ( _manifest_read_lines "${root_manifest}"; _manifest_insert_vcpkg_baseline "${root_manifest}" "${baseline}" ) || return $?
+      fi
+    fi
+  fi
+
   sync_check_destinations "${FORGE_ROOT}"
   progress "Updating Forge.toml"
   manifest_add_dependency "${FORGE_MANIFEST_PATH}" "${name}" "${source}" "${fields[@]}"
+  if [[ -n "${baseline}" && "${root_manifest}" != "${FORGE_MANIFEST_PATH}" ]]; then
+    manifest_set_vcpkg_baseline "${root_manifest}" "${baseline}"
+  fi
   progress_finish
+  [[ -z "${baseline}" ]] || status "recorded vcpkg registry baseline ${baseline} in ${root_manifest}"
 
   out "added dependency '${name}' to ${FORGE_MANIFEST_PATH}"
   add_sync_dependency "${source}"

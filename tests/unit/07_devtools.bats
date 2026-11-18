@@ -104,3 +104,17 @@ teardown() {
   run_forge test --repeat=invalid
   [ "$status" -eq 2 ]
 }
+
+@test "fmt dry runs describe their mode and preserve source files" {
+  command -v clang-format >/dev/null || skip "clang-format not installed"
+  printf 'int main( ){return 0;}\n' > src/main.cpp
+  cp src/main.cpp source.before
+  run_forge fmt --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would format "* ]]
+  cmp source.before src/main.cpp
+  run_forge fmt --check --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would check format for "* ]]
+  cmp source.before src/main.cpp
+}

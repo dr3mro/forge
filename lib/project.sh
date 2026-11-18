@@ -154,6 +154,8 @@ scaffold_project() {
   else
     targets+=("${dir}/src/main.cpp")
   fi
+  [[ ! -L "${dir}/cmake" && ! -L "${dir}/.forge" ]] \
+    || die "${EXIT_CONFLICT}" "refusing to scaffold through a symlinked cmake or .forge directory"
   local editor
   for editor in .zed .vscode; do
     if [[ -e "${dir}/${editor}" || -L "${dir}/${editor}" ]]; then

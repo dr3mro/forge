@@ -1,24 +1,23 @@
 # shellcheck shell=bash
 # Forge command: clean.
 
-# Check that a build directory resolves below target without following a final symlink.
+# Require the build directory to resolve to its exact location under target.
 _clean_safe_dir() {
   local d="$1" real treal
-  [[ -L "${d}" ]] && return 1
+  [[ -L "${FORGE_ROOT}/target" || -L "${d}" ]] && return 1
   path_is_safe_relative "${d#"${FORGE_ROOT}/target/"}" || return 1
   real=$(cd "${d}" 2>/dev/null && pwd -P) || return 1
   treal=$(cd "${FORGE_ROOT}/target" 2>/dev/null && pwd -P) || return 1
-  [[ "${real}" == "${treal}"/* ]] || return 1
-  return 0
+  [[ "${real}" == "${treal}/${d#"${FORGE_ROOT}/target/"}" ]]
 }
 
 # Remove selected build directories after validating their paths.
 cmd_clean() {
-  local profile="" all=0
+  local profile="" all=0 rc=0
   while (( $# > 0 )); do
     case "$1" in
       --profile) profile="${2:-}"; [[ -n "${profile}" ]] || die "${EXIT_USAGE}" "--profile requires a value"; shift 2 ;;
-      --profile=*) profile="${1#*=}"; shift ;;
+      --profile=*) profile="${1#*=}"; [[ -n "${profile}" ]] || die "${EXIT_USAGE}" "--profile requires a value"; shift ;;
       --all) all=1; shift ;;
       --help | -h) cmd_help; return "${EXIT_OK}" ;;
       -*) die "${EXIT_USAGE}" "unknown flag for 'clean': $1" ;;
@@ -31,6 +30,7 @@ cmd_clean() {
   require_project
   manifest_load
   local target_dir="${FORGE_ROOT}/target"
+  [[ ! -L "${target_dir}" ]] || die "${EXIT_CONFLICT}" "refusing unsafe path: ${target_dir}"
   [[ -d "${target_dir}" ]] || { out "nothing to clean"; return "${EXIT_OK}"; }
 
   local -a dirs=() d
@@ -55,6 +55,7 @@ cmd_clean() {
   for d in "${dirs[@]}"; do
     if ! _clean_safe_dir "${d}"; then
       fail "refusing unsafe path: ${d}"
+      rc="${EXIT_CONFLICT}"
       continue
     fi
     local lock
@@ -63,6 +64,7 @@ cmd_clean() {
       { [[ "${d}" == "${target_dir}/sanitizers" ]] &&
         [[ -n "$(find "${d}" -name '.*.forge-lock' -type d -print -quit)" ]]; }; then
       fail "refusing to clean an active build: ${d}"
+      rc="${EXIT_CONFLICT}"
       continue
     fi
     if (( FORGE_DRY_RUN )); then
@@ -74,4 +76,5 @@ cmd_clean() {
       out "deleted ${d#"${FORGE_ROOT}"/}"
     fi
   done
+  return "${rc}"
 }

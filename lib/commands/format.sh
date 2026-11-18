@@ -42,7 +42,9 @@ cmd_fmt() {
   (( ${#unique[@]} )) || { out "no source files to format"; return "${EXIT_OK}"; }
 
   if (( FORGE_DRY_RUN )); then
-    status "dry-run: would ${check:+check }format ${#unique[@]} file(s)"
+    local action=format
+    if (( check )); then action="check format for"; fi
+    status "dry-run: would ${action} ${#unique[@]} file(s)"
     return "${EXIT_OK}"
   fi
   progress "Running clang-format"
@@ -89,6 +91,7 @@ cmd_metadata() {
   lock_state="absent"
   [[ -f "${FORGE_ROOT}/conan.lock" ]] && lock_state="present"
   sync_detect_drift || rc=$?
+  (( rc <= 1 )) || die "${EXIT_CONFLICT}" "could not check Forge sync state"
   local sync_state="clean"
   (( rc == 1 )) && sync_state="drift"
 

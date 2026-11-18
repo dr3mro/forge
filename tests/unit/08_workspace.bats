@@ -52,8 +52,8 @@ teardown() {
   run_forge --no-color generate lib lib2 >/dev/null
   cd ../..
 
-  grep -q 'deps/logger' libs/lib1/cmake/Dependencies.cmake
-  grep -q 'libs/lib2' libs/lib1/cmake/Dependencies.cmake
+  grep -q 'deps/logger' libs/lib1/cmake/deps/logger/CMakeLists.txt
+  grep -q 'libs/lib2' libs/lib1/cmake/Workspace.cmake
 
   run_forge --no-color sync --check
   [ "$status" -eq 0 ]

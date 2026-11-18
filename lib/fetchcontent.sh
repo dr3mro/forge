@@ -10,18 +10,27 @@ fetchcontent_has_deps() {
   (( $(mq '[((.dependencies // {}) | to_entries[] | select(.value.source == "git"))] | length') > 0 ))
 }
 
-# Resolve a tag/branch/HEAD to a full commit SHA via git ls-remote.
+# Resolve an exact branch or tag, preferring the commit peeled from an annotated tag.
 fetchcontent_resolve_ref() {
-  local url="$1" ref="$2" line sha
+  local url="$1" selector="$2" ref="$3" full_ref rows sha remote_ref exact="" peeled=""
+  local -a refs=()
+  case "${selector}" in
+    --tag) full_ref="refs/tags/${ref}"; refs=("${full_ref}" "${full_ref}^{}") ;;
+    --branch) full_ref="refs/heads/${ref}"; refs=("${full_ref}") ;;
+  esac
+
   require_tool git
-  line=$(git ls-remote "${url}" \
-    "refs/tags/${ref}" "refs/tags/${ref}^{}" "refs/heads/${ref}" "${ref}" 2>/dev/null \
-    | head -1)
-  [[ -n "${line}" ]] \
+  rows=$(git ls-remote -- "${url}" "${refs[@]}" 2>/dev/null) \
     || die "${EXIT_DEP}" "could not resolve '${ref}' in ${url}"
-  sha="${line%%$'\t'*}"
+  while IFS=$'\t' read -r sha remote_ref; do
+    case "${remote_ref}" in
+      "${full_ref}") exact="${sha}" ;;
+      "${full_ref}^{}") peeled="${sha}" ;;
+    esac
+  done <<< "${rows}"
+  sha="${peeled:-${exact}}"
   [[ "${sha}" =~ ^[0-9a-fA-F]{40}$ ]] \
-    || die "${EXIT_DEP}" "'${ref}' did not resolve to a full 40-char SHA"
+    || die "${EXIT_DEP}" "could not resolve '${ref}' to a full 40-char SHA in ${url}"
   printf '%s' "${sha}"
 }
 

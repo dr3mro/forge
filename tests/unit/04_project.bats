@@ -88,7 +88,8 @@ load ../test_helper
     run_forge --no-color init "--$kind" <<< "$input"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Project name"*Version*Description*"Author name"*"Author email"* ]]
-    grep -Fq 'project(sample VERSION 2.4.1 LANGUAGES CXX)' CMakeLists.txt
+    grep -Fxq 'forge_project_version(forge_version 2.4.1)' CMakeLists.txt
+    grep -Fxq 'project(sample VERSION ${forge_version} LANGUAGES CXX)' CMakeLists.txt
     grep -Fq -- "$description" README.md
     run python3 -c 'import sys, tomllib; p = tomllib.load(open("Forge.toml", "rb"))["package"]; assert p["description"] == sys.argv[1]' "$description"
     [ "$status" -eq 0 ]
@@ -250,4 +251,21 @@ load ../test_helper
   [ "$status" -eq 2 ]
   [[ "$output" == *'C++ keyword cannot be used as a class name'* ]]
   [ ! -e class ]
+}
+
+@test "init refuses symlinked CMake and state directories before scaffolding" {
+  cd "$BATS_TEST_TMPDIR"
+  local dir
+  for dir in cmake .forge; do
+    mkdir -p outside project
+    ln -s "$PWD/outside" "project/$dir"
+    cd project
+    run_forge init --name sample --defaults
+    [ "$status" -eq 6 ]
+    [[ "$output" == *"refusing to scaffold through a symlinked"* ]]
+    [ ! -e Forge.toml ]
+    [ -z "$(ls -A ../outside)" ]
+    cd ..
+    unlink "project/$dir"
+  done
 }

@@ -72,37 +72,39 @@ deps_lock() {
 
 # Resolve a Git dependency to a commit and save it in the manifest.
 deps_pin() {
-  local name="" tag="" branch="" sha=""
+  local name="" selector="" value="" sha=""
   while (( $# > 0 )); do
     case "$1" in
-      --tag)     [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "$1 requires a value"; tag="${2:-}"; shift 2 ;;
-      --branch)  [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "$1 requires a value"; branch="${2:-}"; shift 2 ;;
-      --sha)     [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "$1 requires a value"; sha="${2:-}"; shift 2 ;;
+      --tag | --branch | --sha)
+        [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "$1 requires a value"
+        [[ -z "${selector}" ]] || die "${EXIT_USAGE}" "deps pin requires exactly one of --tag, --branch or --sha"
+        selector="$1"
+        value="$2"
+        shift 2
+        ;;
       --help | -h) cmd_help; return "${EXIT_OK}" ;;
       -*) die "${EXIT_USAGE}" "unknown flag for 'deps pin': $1" ;;
       *) [[ -z "${name}" ]] || die "${EXIT_USAGE}" "deps pin accepts one NAME"; name="$1"; shift ;;
     esac
   done
   [[ -n "${name}" ]] || die "${EXIT_USAGE}" "deps pin requires a dependency NAME"
+  [[ -n "${selector}" ]] || die "${EXIT_USAGE}" "deps pin requires exactly one of --tag, --branch or --sha"
   manifest_load
-  local src url current
+  local src url
   src=$(mq --arg n "${name}" '(.dependencies // {})[$n].source // empty')
   [[ -n "${src}" ]] || die "${EXIT_USAGE}" "no dependency named '${name}'"
   [[ "${src}" == "git" ]] || die "${EXIT_USAGE}" "'${name}' is not a git dependency"
   url=$(mq --arg n "${name}" '(.dependencies // {})[$n].url')
 
-  if [[ -n "${sha}" ]]; then
+  if [[ "${selector}" == --sha ]]; then
+    sha="${value}"
     [[ "${sha}" =~ ^[0-9a-fA-F]{40}$ ]] \
       || die "${EXIT_USAGE}" "--sha must be a full 40-char commit SHA"
-  elif [[ -n "${tag}" || -n "${branch}" ]]; then
-    [[ "${tag}" != "${branch}" ]] || die "${EXIT_USAGE}" "use either --tag or --branch"
+  else
     if (( FORGE_OFFLINE )); then
       die "${EXIT_DEP}" "--offline cannot resolve a tag/branch; supply --sha"
     fi
-    current="${tag:-${branch}}"
-    sha=$(fetchcontent_resolve_ref "${url}" "${current}")
-  else
-    die "${EXIT_USAGE}" "deps pin needs --tag, --branch or --sha"
+    sha=$(fetchcontent_resolve_ref "${url}" "${selector}" "${value}")
   fi
 
   if (( FORGE_DRY_RUN )); then
@@ -149,6 +151,7 @@ deps_status() {
   fi
   local rc_sync=0
   sync_detect_drift || rc_sync=$?
+  (( rc_sync <= 1 )) || die "${EXIT_CONFLICT}" "could not check Forge sync state"
   (( rc_sync == 1 )) && drift="drift"
   if ! deps_check_collisions; then drift="collision"; rc="${EXIT_DEP}"; fi
 

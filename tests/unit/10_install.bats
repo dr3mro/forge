@@ -155,6 +155,15 @@ setup() {
   '
   [ "$status" -eq 0 ]
   [ "$output" = '--branch' ]
+  run /bin/bash --noprofile -c '
+    . "$HOME/.bashrc"
+    COMP_WORDS=(forge add fmt_git --source = git "")
+    COMP_CWORD=6
+    _forge_complete
+    printf "%s\n" "${COMPREPLY[@]}"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = '--url' ]
   if command -v zsh >/dev/null; then
     run zsh -fc '
       words=(forge deps status --form)
@@ -164,6 +173,14 @@ setup() {
     '
     [ "$status" -eq 0 ]
     [ "$output" = $'--\n--format' ]
+    run zsh -fc '
+      words=(forge add fmt_git --source git --url file:///tmp/sample --tag v1 "")
+      CURRENT=10 PREFIX=""
+      compadd() { printf "%s\n" "$@"; }
+      source "$HOME/.zfunc/_forge"
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = $'--\n--cmake-target' ]
   fi
 }
 

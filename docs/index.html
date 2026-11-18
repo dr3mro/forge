@@ -513,7 +513,21 @@ forge clean --all --yes</pre></div></details>
 </dl>
 <pre>forge add fmt/12.1.0 --conan --target hello
 forge add fmt --vcpkg
-forge add logger --source path --path vendor/logger --cmake-target logger</pre></div></details>
+forge add fmt/12.0.0 --vcpkg
+forge add logger --source path --path vendor/logger --cmake-target logger</pre>
+<h3>Add a Git dependency with FetchContent</h3>
+<pre>forge add fmt_git --source git --url https://github.com/fmtlib/fmt.git --tag 12.0.0 --cmake-target fmt::fmt
+forge build</pre>
+<p><code>fmt_git</code> is the dependency name in <code>Forge.toml</code>.
+Use the CMake target exported by the upstream project. Forge resolves the tag
+to a full commit SHA and syncs the generated FetchContent rules. You can also
+use <code>--branch NAME</code> or <code>--sha SHA</code>.</p>
+<p>If your target already has a nonempty <code>links</code> list, add
+<code>"fmt_git"</code> to it and run <code>forge sync --apply</code> before building.
+With Bash or Zsh completion loaded, type <code>forge add fmt_git --source g</code>
+and press Tab. After entering the source, URL, or revision, type a space and
+press Tab for the next Git option.</p>
+</div></details>
 <details data-command="remove"><summary><code>forge remove NAME [--lib]</code><span>Remove a dependency or detach a library, then sync</span></summary>
 <div class="content">
 <dl>

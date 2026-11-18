@@ -137,7 +137,7 @@ _manifest_dep_header() {
 manifest_add_dependency() {
   local file="$1" name="$2" source="$3"
   shift 3
-  local ref="" url="" rev="" path="" cmake_target="" cmake_package="" port="" link_target="" kv key value
+  local ref="" url="" rev="" path="" cmake_target="" cmake_package="" port="" version="" vcpkg_baseline="" link_target="" kv key value
   local -a options=()
   for kv in "$@"; do
     key="${kv%%=*}" value="${kv#*=}"
@@ -149,6 +149,8 @@ manifest_add_dependency() {
       cmake_target) cmake_target="${value}" ;;
       cmake_package) cmake_package="${value}" ;;
       port) port="${value}" ;;
+      version) version="${value}" ;;
+      vcpkg_baseline) vcpkg_baseline="${value}" ;;
       link_target) link_target="${value}" ;;
       option) options+=("${value}") ;;
       *) die "${EXIT_USAGE}" "unknown dependency field: ${key}" ;;
@@ -167,6 +169,7 @@ manifest_add_dependency() {
       ;;
     vcpkg)
       block+=("port = \"$(_toml_escape "${port}")\"")
+      [[ -z "${version}" ]] || block+=("version = \"$(_toml_escape "${version}")\"")
       ;;
     git)
       [[ -n "${url}" ]] || die "${EXIT_USAGE}" "git dependency needs --url"
@@ -192,6 +195,8 @@ manifest_add_dependency() {
     _manifest_link_target "${file}" "${link_target}" "${name}"
   fi
 
+  [[ -z "${vcpkg_baseline}" ]] || _manifest_insert_vcpkg_baseline "${file}" "${vcpkg_baseline}"
+
   local last="${FORGE_EDIT_LINES[${#FORGE_EDIT_LINES[@]}-1]:-}"
   [[ -z "${last}" ]] || FORGE_EDIT_LINES+=("")
   FORGE_EDIT_LINES+=("${block[@]}")
@@ -209,6 +214,31 @@ manifest_add_dependency() {
   _manifest_backup "${file}"
   _manifest_commit "${file}"
   printf '%s\n' "${block[@]}"
+}
+
+# Add the workspace baseline to the edit buffer without replacing the build table.
+_manifest_insert_vcpkg_baseline() {
+  local file="$1" baseline="$2" i json
+  for (( i=0; i<${#FORGE_EDIT_LINES[@]}; i++ )); do
+    if [[ "${FORGE_EDIT_LINES[i]}" =~ ^[[:space:]]*\[build\][[:space:]]*(#.*)?$ ]]; then
+      FORGE_EDIT_LINES=("${FORGE_EDIT_LINES[@]:0:i+1}" "vcpkg_baseline = \"${baseline}\"" "${FORGE_EDIT_LINES[@]:i+1}")
+      return 0
+    fi
+  done
+  json=$(manifest_to_json "${file}") || return $?
+  if jq -e 'has("build") | not' <<< "${json}" >/dev/null; then
+    FORGE_EDIT_LINES+=("" "[build]" "vcpkg_baseline = \"${baseline}\"")
+    return 0
+  fi
+  die "${EXIT_USAGE}" "set build.vcpkg_baseline in the workspace root or use a [build] table"
+}
+
+manifest_set_vcpkg_baseline() {
+  local file="$1" baseline="$2"
+  _manifest_read_lines "${file}"
+  _manifest_insert_vcpkg_baseline "${file}" "${baseline}"
+  _manifest_backup "${file}"
+  _manifest_commit "${file}"
 }
 
 # Add a link to one target in the current edit buffer before the manifest commit.

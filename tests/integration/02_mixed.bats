@@ -101,7 +101,7 @@ EOF
   run_forge --no-color sync --apply --yes
   [ "$status" -eq 0 ]
   grep -q 'fmt/12.1.0' conanfile.txt
-  grep -q 'find_package(fmt 12.1.0' libs/lib1/cmake/Dependencies.cmake
+  grep -q 'find_package(fmt 12.1.0 CONFIG REQUIRED GLOBAL)' libs/lib1/cmake/deps/fmt/CMakeLists.txt
   run_forge --no-color deps lock
   [ "$status" -eq 0 ]
   run_forge --no-color build

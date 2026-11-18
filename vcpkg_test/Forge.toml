@@ -1,0 +1,28 @@
+schema = 1
+
+[package]
+name = "vcpkg_test"
+version = "0.1.0"
+cppstd = "20"
+
+[build]
+vcpkg_baseline = "de36db04550a8625e3154b1a758c60035901f244"
+generator = "Ninja"
+default_profile = "debug"
+
+[[bin]]
+name = "vcpkg_test"
+path = "src/main.cpp"
+links = ["fmt"]
+
+[[test]]
+name = "vcpkg_test_tests"
+path = "tests/main.cpp"
+links = []
+
+[dependencies.fmt]
+source = "vcpkg"
+port = "fmt"
+version = "12.2.1"
+cmake_target = "fmt::fmt"
+cmake_package = "fmt"

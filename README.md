@@ -64,6 +64,27 @@ SQLite also has a shortcut, `forge add sqlite3 --vcpkg`. Other ports require
 `--cmake-target` and can override the CMake package name
 with `--cmake-package`. See the [dependency guide](docs/dependencies.md).
 
+### Add a Git dependency with FetchContent
+
+```bash
+forge add fmt_git --source git \
+  --url https://github.com/fmtlib/fmt.git \
+  --tag 12.0.0 \
+  --cmake-target fmt::fmt
+forge build
+```
+
+`fmt_git` is the name you use in `Forge.toml`. Use the CMake target exported by
+the upstream project. Forge resolves the tag to a full commit SHA and syncs
+the generated FetchContent rules. You can also select a branch with
+`--branch NAME` or provide a full commit SHA with `--sha SHA`.
+
+If your target already has a nonempty `links` list, add `"fmt_git"` to it and
+run `forge sync --apply` before building. With Forge’s Bash or Zsh completion
+loaded, type `forge add fmt_git --source g` and press Tab to complete `git`.
+After entering the source, URL, or revision, type a space and press Tab for
+the next Git option.
+
 ### Change a dependency in Forge.toml
 
 Change a Conan `ref` to upgrade it and edit its options in the same manifest.
@@ -81,12 +102,13 @@ cmake_target = "fmt::fmt-header-only"
 header_only = true
 ```
 
-vcpkg declarations accept `features = ["feature-name"]` and
-`default_features = false`. To pin an exact port release, set
-`version = "11.0.0#1"` in its dependency table and set `build.vcpkg_baseline`
-in the workspace root to the full registry commit SHA. Use matching settings
-where a port is shared across members. Use `forge deps pin NAME --tag TAG`
-to upgrade a Git dependency by tag.
+Use `forge add fmt/12.0.0 --vcpkg` to pin an exact port version. Forge
+records the current Git commit of `VCPKG_ROOT` as the workspace baseline
+the first time it needs one. It reuses any existing baseline. Use
+`PORT/VERSION#PORT_VERSION` to pin a specific port revision. vcpkg declarations
+also accept `features = ["feature-name"]` and `default_features = false`.
+Use matching settings where a port is shared across members. Use
+`forge deps pin NAME --tag TAG` to upgrade a Git dependency by tag.
 
 ```sh
 forge sync --apply --yes
@@ -206,6 +228,13 @@ operators. The source defaults those operations in the same namespace.
 forge generate lib math --namespace acme::numeric
 forge new geometry --lib --namespace acme::geometry --defaults
 ```
+
+## Generated CMake layout
+
+Generated projects use their root `CMakeLists.txt` to coordinate focused
+modules under `cmake/`. Each dependency has its own
+`cmake/deps/<name>/CMakeLists.txt`. To upgrade an existing project, preview the
+migration with `forge sync --diff` and apply it with `forge sync --apply`.
 
 ## Static and shared libraries
 

@@ -128,6 +128,8 @@ example	new	forge new hello --defaults --version 1.2.3
 example	build	forge build --release --target hello
 example	test	forge test --sanitize address
 example	add	forge add fmt --vcpkg
+example	add	forge add fmt/12.0.0 --vcpkg
+example	add	forge add fmt_git --source git --url https://github.com/fmtlib/fmt.git --tag 12.0.0 --cmake-target fmt::fmt
 example	add	forge add logger --source path --path vendor/logger --cmake-target logger
 example	sync	forge sync --apply --yes
 example	clean	forge clean --all --yes

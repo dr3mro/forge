@@ -107,7 +107,7 @@ teardown() {
   load_forge_libs
   local oldpath="$PATH" sha
   export PATH="${FORGE_PROJECT_DIR}/tests/fakebin:${PATH}"
-  sha=$(fetchcontent_resolve_ref "https://example.invalid/repo.git" v1.0.0)
+  sha=$(fetchcontent_resolve_ref "https://example.invalid/repo.git" --tag v1.0.0)
   export PATH="${oldpath}"
   [ "${sha}" = "1111111111111111111111111111111111111111" ]
 }
@@ -190,4 +190,39 @@ PY
   jq -e '.files | has("conanfile.txt") | not' .forge/state.json
   run_forge sync --check
   [ "$status" -eq 0 ]
+}
+
+@test "deps pin rejects competing selectors before changing the manifest" {
+  git -C "$GITREPO" branch audit-branch
+  run_forge add gdep --source git --url "file://${GITREPO}" \
+    --sha 0000000000000000000000000000000000000000 --cmake-target gdep::gdep
+  [ "$status" -eq 0 ]
+  cp Forge.toml manifest.before
+
+  run_forge deps pin gdep --tag v1.0.0 --branch audit-branch
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"requires exactly one"* ]]
+  run_forge deps pin gdep --sha "$SHA" --tag v1.0.0
+  [ "$status" -eq 2 ]
+  run_forge deps pin gdep --branch audit-branch --sha "$SHA"
+  [ "$status" -eq 2 ]
+  cmp manifest.before Forge.toml
+}
+
+@test "Git selectors distinguish a branch from an annotated tag with the same name" {
+  git -C "$GITREPO" -c user.name=t -c user.email=a@b tag -am release shared "$SHA"
+  git -C "$GITREPO" -c user.name=t -c user.email=a@b commit --allow-empty -qm next
+  git -C "$GITREPO" branch shared
+  local branch_sha
+  branch_sha=$(git -C "$GITREPO" rev-parse refs/heads/shared)
+
+  run_forge add gdep --source git --url "file://${GITREPO}" --tag shared --branch shared --cmake-target gdep::gdep
+  [ "$status" -eq 2 ]
+  ! grep -Fq '[dependencies.gdep]' Forge.toml
+  run_forge add gdep --source=git --url "file://${GITREPO}" --tag shared --cmake-target gdep::gdep
+  [ "$status" -eq 0 ]
+  grep -Fxq "rev = \"$SHA\"" Forge.toml
+  run_forge deps pin gdep --branch shared
+  [ "$status" -eq 0 ]
+  grep -Fxq "rev = \"$branch_sha\"" Forge.toml
 }

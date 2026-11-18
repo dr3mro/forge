@@ -67,7 +67,7 @@ SH
   mock_conan_lock
   run_forge --no-color add example/1.0 --conan --cmake-target Example::Widget
   [ "$status" -eq 0 ]
-  grep -Fq 'find_package(Example 1.0 CONFIG REQUIRED)' cmake/Dependencies.cmake
+  grep -Fq 'find_package(Example 1.0 CONFIG REQUIRED GLOBAL)' cmake/deps/example/CMakeLists.txt
   grep -Fq 'target_link_libraries(demo PRIVATE Example::Widget)' cmake/Targets.cmake
 }
 

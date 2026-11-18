@@ -1,6 +1,6 @@
 # Dependencies
 
-Forge supports three sources, each stated explicitly in `Forge.toml`:
+Forge supports four sources, each stated explicitly in `Forge.toml`:
 
 | Source | Fields | Resolution |
 | --- | --- | --- |
@@ -9,7 +9,7 @@ Forge supports three sources, each stated explicitly in `Forge.toml`:
 | `git` | `url`, `rev` (full SHA) | `FetchContent_Declare(... GIT_TAG <sha>)`; tags/branches resolved by `deps pin` |
 | `path` | `path` | `add_subdirectory` of an in-tree CMake project |
 
-Conan packages are found with `find_package(<pkg> <version> CONFIG REQUIRED)`
+Conan packages are found with `find_package(<pkg> <version> CONFIG REQUIRED GLOBAL)`
 using CMakeDeps. Git sources are consumed through their upstream CMake targets.
 Forge never silently prefers a system package, and duplicate logical packages
 are diagnosed across the **whole workspace graph**, not just the root.
@@ -17,10 +17,14 @@ are diagnosed across the **whole workspace graph**, not just the root.
 Each member declares its own dependencies in its own `Forge.toml`. When the root
 is built, all reachable Conan requirements are aggregated into the root
 `conanfile.txt` and `conan.lock`, so a single `conan install` supplies every
-member. Git/path dependencies stay in the member that declares them; their
-`FetchContent_Declare` / `add_subdirectory` lines are rendered into that
-member's `cmake/Dependencies.cmake`. Conflicting options for the same Conan
-package, or two projects exporting the same CMake target name, are refused.
+member. Each dependency has a generated `cmake/deps/<name>/CMakeLists.txt` in
+the project that declares it. The project's `cmake/Dependencies.cmake` loads
+these directories with `add_subdirectory`. Conan and vcpkg package lookups
+expose imported targets to the consuming project. Git and path dependencies
+use their upstream CMake rules. In dependency directory names, Forge encodes
+each uppercase letter as a hyphen followed by its lowercase form so aliases
+that differ by case can coexist on macOS. Forge refuses conflicting options for the
+same Conan package and duplicate CMake target names across projects.
 
 ## Add a dependency to a workspace member
 
@@ -50,6 +54,11 @@ when Conan cannot provide metadata. `--offline` limits discovery to the
 local Conan cache.
 
 `forge add fmt --vcpkg` uses the installed vcpkg registry checkout.
+`forge add fmt/12.0.0 --vcpkg` adds an exact version override. If the workspace
+has no `build.vcpkg_baseline`, Forge records the current Git commit from
+`VCPKG_ROOT` in the workspace root's manifest. Existing baselines are reused.
+Use `PORT/VERSION#PORT_VERSION` to specify a port revision. Building an older
+port requires a checkout with its Git history.
 `forge add sqlite3 --vcpkg` uses package `unofficial-sqlite3` and imported
 target `unofficial::sqlite3::sqlite3`. Use `--target` to choose a consuming
 project target and `--cmake-target` to name the dependency's imported target.

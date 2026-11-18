@@ -139,3 +139,32 @@ load ../test_helper
   run_forge test --sanitize
   [ "$status" -eq 2 ]
 }
+
+@test "Git dependency completion guides the URL, revision, and CMake target" {
+  run_forge __complete '' add fmt_git
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'--source'* ]]
+
+  run_forge __complete g add fmt_git --source
+  [ "$status" -eq 0 ]
+  [ "$output" = git ]
+  run_forge __complete --source=g add fmt_git
+  [ "$status" -eq 0 ]
+  [ "$output" = --source=git ]
+
+  run_forge __complete '' add fmt_git --source git
+  [ "$status" -eq 0 ]
+  [ "$output" = --url ]
+  run_forge __complete '' add fmt_git --source = git --url file:///tmp/sample
+  [ "$status" -eq 0 ]
+  [ "$output" = $'--tag\n--branch\n--sha' ]
+  run_forge __complete '' add fmt_git --source=git --url file:///tmp/sample --tag v1
+  [ "$status" -eq 0 ]
+  [ "$output" = --cmake-target ]
+  run_forge __complete -- add fmt_git --source=git --url file:///tmp/sample --branch main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'--cmake-target'* && "$output" != *'--tag'* && "$output" != *'--conan'* ]]
+  run_forge __complete '' add fmt_git --source=git --url file:///tmp/sample --sha deadbeef --cmake-target fmt::fmt
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

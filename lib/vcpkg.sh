@@ -7,9 +7,21 @@ vcpkg_target_is_local() {
     <<< "$2" >/dev/null
 }
 
+# Pin the current Git checkout when the workspace has no registry baseline yet.
+vcpkg_registry_baseline() {
+  local root="${VCPKG_ROOT:-}" baseline
+  [[ -n "${root}" ]] || die "${EXIT_TOOL}" "set VCPKG_ROOT to a Git checkout of vcpkg to record a baseline"
+  require_tool git
+  baseline=$(git -C "${root}" rev-parse --verify HEAD 2>/dev/null) \
+    && [[ "${baseline}" =~ ^[0-9a-fA-F]{40}$ ]] \
+    && git -C "${root}" cat-file -e "${baseline}:versions/baseline.json" 2>/dev/null \
+    || die "${EXIT_DEP}" "could not read the registry baseline from VCPKG_ROOT"
+  printf '%s' "${baseline}"
+}
+
 # Build a deterministic vcpkg manifest for the workspace root.
 vcpkg_workspace_manifest() {
-  local node json records baseline imported
+  local node json records baseline imported root
   workspace_collect_graph "${FORGE_ROOT}" || return 1
   records=$(
     for node in "${FORGE_GRAPH_NODES[@]}"; do
@@ -27,6 +39,13 @@ vcpkg_workspace_manifest() {
   ) || return 1
   [[ -n "${records}" ]] || return 0
   baseline=$(mq '.build.vcpkg_baseline // ""') || return 1
+  if [[ -z "${baseline}" ]] && jq -es 'any(.[]; .version != null)' <<< "${records}" >/dev/null; then
+    root=$(workspace_enclosing_root "${FORGE_ROOT}") || return 1
+    if [[ "${root}" != "${FORGE_ROOT}" ]]; then
+      json=$(manifest_to_json "${root}/Forge.toml") || return 1
+      baseline=$(jq -r '.build.vcpkg_baseline // ""' <<< "${json}") || return 1
+    fi
+  fi
   jq -cs --arg baseline "${baseline}" '
     group_by(.port) | map(unique) |
     if any(length > 1) then error("conflicting vcpkg settings for a workspace port") else map(.[0]) end |

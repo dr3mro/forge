@@ -5,7 +5,7 @@ if [[ "${1:-}" == "--version" ]]; then
   exit 0
 fi
 if [[ "${1:-}" == "ls-remote" ]]; then
-  printf '1111111111111111111111111111111111111111\t%s\n' "${@:2}"
+  printf '1111111111111111111111111111111111111111\t%s\n' "${4}"
   exit 0
 fi
 printf 'fake-git: unexpected invocation: %s\n' "$*" >&2

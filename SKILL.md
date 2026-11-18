@@ -110,6 +110,12 @@ projects for manual tests.
   The shell adapters call the internal `__complete` protocol. Keep the same
   commands, options, and examples represented in `docs/index.html` and README.
   The website test checks catalog coverage and navigation links.
+- Git dependency completion guides `forge add NAME --source git` through
+  `--url`, one of `--tag`, `--branch` or `--sha`, and `--cmake-target`.
+  It runs locally and accepts Bash's split `--source=git` input. Keep the
+  FetchContent example in the CLI catalog, README, and website command
+  reference aligned. All 42 focused CLI, dependency, installer, and website
+  tests passed, along with ShellCheck.
 - `forge run --build` uses the normal build pipeline for the requested
   profile and workspace application, then launches the freshly built
   executable. Build diagnostics go to stderr so the app owns stdout.
@@ -155,6 +161,13 @@ projects for manual tests.
   workspace root. Repeated port declarations must agree. The generated
   JSON participates in the build fingerprint. Offline builds reuse a
   configured tree with manifest installation disabled.
+- `forge add PORT/VERSION --vcpkg` and `PORT/VERSION#PORT_VERSION` write
+  exact overrides. If the workspace has no baseline, the first versioned add
+  pins the current Git commit of `VCPKG_ROOT`. Existing baselines are reused,
+  and adding from a member records the baseline at the workspace root. Older
+  ports may need Git history missing from shallow checkouts. The 163-test
+  Bats suite and ShellCheck passed. A real fmt 12.2.1 vcpkg build passed
+  CTest and ran.
 - The package-manager shortcuts add the dependency and its selected link in
   one validated edit, then sync. The root's sole application has priority.
   Members use their sole application or library. Use `--target NAME` when
@@ -298,7 +311,21 @@ PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
   then atomically replace. `remove-entry.py` handles canonical Forge TOML,
   including multiline link and member arrays, and checks its parsed edit against
   the intended data change before writing. `manifest_add_link_to_targets` appends to every `[[bin]]/[[lib]]/[[test]]` `links` array.
-- `sync`: `sync_prepare` collects the graph, then for each node temporarily swaps `FORGE_ROOT`/`FORGE_MANIFEST_JSON`/`FORGE_MANIFEST_PATH`/`FORGE_STATE_PATH`, renders templates to a temp dir, restores globals. `sync_detect_drift` returns 0/1/2 and fills `FORGE_SYNC_MESSAGES` with `label: message`. `sync_apply` merges per project with per-project proposals/backups.
+- `sync`: `sync_prepare` collects the graph, then for each node temporarily swaps `FORGE_ROOT`/`FORGE_MANIFEST_JSON`/`FORGE_MANIFEST_PATH`/`FORGE_STATE_PATH`, renders templates to a temp dir, restores globals. `sync_detect_drift` returns 0 for clean, 1 for drift, 2 for rendering errors, or 6 for missing or invalid state, and fills `FORGE_SYNC_MESSAGES` with `label: message`. `sync_apply` merges per project with per-project proposals/backups.
+- Generated root `CMakeLists.txt` orchestrates version resolution, source
+  configuration, project options, dependency and workspace loading, target
+  declaration, and CTest registration. Each module under `cmake/` defines one
+  function. Dependencies use `add_subdirectory(cmake/deps/<name>)` and
+  one `CMakeLists.txt` per dependency. Package lookups use `GLOBAL` to make
+  imported targets visible to consumers outside the dependency directory.
+  Workspace targets stay in their original build directories. Uppercase
+  dependency aliases use hyphen escapes in generated directory names so
+  aliases that differ only by case also work on macOS.
+- Sync inventories per-dependency files using incoming render output and
+  recorded state. This lets existing projects migrate via three-way sync.
+  New files respect user-owned paths. Removed dependencies back up unmodified
+  files and release locally edited files from management. Check dependency
+  directory and base paths for symlinks before applying changes.
 - Render the Conan recipe from `templates/base/conanfile.txt.tpl` only when the module declares Conan dependencies or the workspace root has reachable Conan requirements. Root recipes aggregate the graph. Sync creates the recipe on first use and retires unused managed recipes, backing up unmodified files and preserving edited ones. A different user-owned recipe triggers a proposal on first use. Conflicting options for the same package or duplicate CMake target names are rejected.
 - `compute_fingerprint` includes compiler, generator, arch, profile, Conan profiles, sanitizer, toolchain file. Store the fingerprint in `target/<profile>/.forge-config` and refresh CMake in the stable profile directory when it changes.
 - CMake exports the per-build database; successful builds atomically refresh
@@ -311,6 +338,20 @@ Optional Conan recipe verification on macOS: all 146 Bats tests passed with a
 writable Conan fixture cache, and ShellCheck passed. Regressions cover recipe
 creation in a workspace, vcpkg-only projects, and preservation of local edits.
 
+The audit of commit `4739852` covered every public command and subcommand
+on macOS. The full 146-test Bats suite passed. See `BUGS.md` for seven
+manual findings, including cleanup path validation and sync status errors.
+All seven findings now have CLI regression tests. Cleanup verifies the exact
+physical path and reports refusal as exit 6. Use disposable projects and
+sibling marker files for cleanup tests. Missing or invalid workspace state
+fails status commands with exit 6 before they emit a success report.
+Conflicting sync modes and competing Git selectors return usage error 2.
+Git resolves the exact requested branch or tag and peels annotated tags.
+Formatting previews distinguish write mode from check mode and preserve source
+files. All 160 Bats tests passed without skips, alongside ShellCheck.
+A real Conan fmt and vcpkg zlib build passed CTest and rebuilt offline.
+See `ISSUES.md` for the real vcpkg SQLite verification blocker.
+
 ## 8. How to continue
 
 **Maintenance rule:** after finishing any task in this repository, update this
@@ -318,7 +359,7 @@ creation in a workspace, vcpkg-only projects, and preservation of local edits.
 user preferences, gotchas and verification results so the next session resumes
 with accurate context. Do this even for small fixes.
 
-1. Read `TODO.md` for the current backlog.
+1. Read `BUGS.md` for the CLI audit, reproducible failures, and likely causes.
 2. Before editing, run the verification commands in §4 to establish a baseline.
 3. For help/completion changes edit `lib/cli-reference.tsv` and `lib/cli-reference.sh`; for dependency changes edit `lib/conan.sh`, `lib/cmake.sh`, `lib/schema.jq`; for workspace behavior edit `lib/workspace.sh`, `lib/sync.sh`, `lib/commands/generate.sh`.
 4. Always write tests for new code and behavior, including bug fixes.

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "template_id": "base",
+  "template_version": "1.0.0",
+  "manifest": "9e85ed756b5fb45df0e45471392021c068cf489b5ff29d74e18844ba6945c8dc",
+  "files": {
+    "CMakeLists.txt": "31eebab5e84ca6f2d57298218876ed98820aa58fd91e085ea324685d61a86eaa",
+    "CMakePresets.json": "368040e6696a4c6982340c5ba10b22a777eb179d0ee1e3bb81ce5eaf161843c9",
+    "cmake/Version.cmake": "e67dc2fdaa380e4e781755d35794c2cee454527ef44bf21d57a90c643fc12517",
+    "cmake/VersionSource.cmake": "8c1339bfb404533b8d97987242165f2b54549e0a4dfbc4a268143c0963557e20",
+    "cmake/ProjectOptions.cmake": "ceffb900250e6fd792cec166ab6f0637bc748bd1c858958b686873dd013a0df0",
+    "cmake/Dependencies.cmake": "d166fc81958a77e2fdec3fc24dfe1e96d672e1debfa26b0aa179ba0d738b03c4",
+    "cmake/Workspace.cmake": "0aa92085e947c108f1541f2e8b063f0e62efd685c34ed23fc0f55ee9ff3b4001",
+    "cmake/Targets.cmake": "be723d31e23849d68179ef115c171a72a3c8d220c35b00f082cc524e0b9aa869",
+    "cmake/Testing.cmake": "bdbf7889708c3528a8c7991eae54509b7db4ca0909b25fc58ce6c3fb642c192c",
+    "cmake/deps/fmt/CMakeLists.txt": "66d692db4c4c0940889794904c73b3b0f84765feba0a644d8ac08da959dc9c57"
+  }
+}

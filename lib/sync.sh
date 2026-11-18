@@ -3,7 +3,7 @@
 # Forge sync — recursive three-way drift detection and patch application.
 # API:
 #   sync_prepare          # parse + validate + render every reachable project
-#   sync_detect_drift     # 0 clean, 1 drift (messages in FORGE_SYNC_MESSAGES), 2 fatal
+#   sync_detect_drift     # 0 clean, 1 drift (messages in FORGE_SYNC_MESSAGES), 2 render error, 6 invalid state
 #   sync_print_diff
 #   sync_apply            # clean merges written; conflicts -> per-project proposals
 # Inputs: workspace graph, each project's state.json and .forge/base/*.
@@ -22,6 +22,16 @@ _sync_state_field() {
 # Read a managed file's recorded hash for the given project.
 _sync_state_file_hash() {
   jq -r --arg f "$1" '.files[$f] // empty' "$2"
+}
+
+# Include generated files and tracked dependencies that may need retirement.
+_sync_managed_files() {
+  local node="$1"
+  {
+    cmake_managed_files "${FORGE_SYNC_TMP_BY_NODE[${node}]:-}"
+    jq -r '.files | keys[] | select(test("^cmake/deps/[A-Za-z_-][A-Za-z0-9_-]*/CMakeLists[.]txt$"))' \
+      "${node}/.forge/state.json"
+  } | awk '!seen[$0]++'
 }
 
 # Format a project-relative label for sync diagnostics.
@@ -58,6 +68,9 @@ sync_prepare() {
       rc=2
     elif [[ ! -f "${FORGE_STATE_PATH}" ]]; then
       fail "missing Forge state: ${FORGE_STATE_PATH}"
+      rc=6
+    elif ! jq -e 'type == "object" and (.files | type == "object")' "${FORGE_STATE_PATH}" >/dev/null; then
+      fail "invalid Forge state: ${FORGE_STATE_PATH}"
       rc=6
     else
       FORGE_MANIFEST_JSON="${json}"
@@ -108,9 +121,13 @@ sync_detect_drift() {
       cur="${node}/${rel}"
       new="${FORGE_SYNC_TMP_BY_NODE[${node}]}/${rel}"
       recorded=$(_sync_state_file_hash "${rel}" "${state}")
-      if [[ "${rel}" == conanfile.txt && ! -f "${new}" ]]; then
+      if [[ ! -f "${new}" ]]; then
         if [[ -n "${recorded}" ]]; then
-          FORGE_SYNC_MESSAGES+=("${label}: Conan recipe no longer required: ${rel}")
+          if [[ "${rel}" == conanfile.txt ]]; then
+            FORGE_SYNC_MESSAGES+=("${label}: Conan recipe no longer required: ${rel}")
+          else
+            FORGE_SYNC_MESSAGES+=("${label}: generated dependency no longer required: ${rel}")
+          fi
           drift=1
         fi
         continue
@@ -127,7 +144,7 @@ sync_detect_drift() {
         FORGE_SYNC_MESSAGES+=("${label}: template + local edits: ${rel} (needs merge)")
       fi
       drift=1
-    done < <(cmake_managed_files)
+    done < <(_sync_managed_files "${node}")
   done
 
   (( drift )) && return 1
@@ -161,7 +178,7 @@ sync_print_diff() {
         out "+++ ${label}/${rel}"
         sed 's/^/+/' "${new}"
       fi
-    done < <(cmake_managed_files)
+    done < <(_sync_managed_files "${node}")
   done
 }
 
@@ -217,43 +234,42 @@ sync_apply() {
       base="${node}/.forge/base/${rel}"
       new="${FORGE_SYNC_TMP_BY_NODE[${node}]}/${rel}"
       recorded=$(_sync_state_file_hash "${rel}" "${state}")
-      if [[ "${rel}" == conanfile.txt ]]; then
-        if [[ ! -f "${new}" ]]; then
-          [[ -n "${recorded}" ]] || continue
-          if [[ -f "${cur}" && "$(sha256_file "${cur}")" == "${recorded}" ]]; then
-            backup="${backup_dir}/conanfile.txt.$(date +%s).$$"
-            mv -- "${cur}" "${backup}" \
-              || die "${EXIT_OTHER}" "could not retire ${label}/${rel}"
-            out "removed unused ${label}/${rel} (backup: ${backup#"${node}"/})"
-          elif [[ -e "${cur}" ]]; then
-            warn "keeping locally edited ${label}/${rel} as a user-owned file"
-          fi
-          rm -f -- "${base}" || die "${EXIT_OTHER}" "could not remove the unused Conan recipe base"
-          jq 'del(.files["conanfile.txt"])' "${state}" | atomic_write "${state}" \
-            || die "${EXIT_OTHER}" "could not update Conan recipe state"
-          continue
+      if [[ ! -f "${new}" ]]; then
+        [[ -n "${recorded}" ]] || continue
+        if [[ -f "${cur}" && "$(sha256_file "${cur}")" == "${recorded}" ]]; then
+          backup="${backup_dir}/${rel//\//_}.$(date +%s).$$"
+          mv -- "${cur}" "${backup}" || die "${EXIT_OTHER}" "could not retire ${label}/${rel}"
+          out "removed unused ${label}/${rel} (backup: ${backup#"${node}"/})"
+        elif [[ -e "${cur}" ]]; then
+          warn "keeping locally edited ${label}/${rel} as a user-owned file"
         fi
-        if [[ -z "${recorded}" ]]; then
-          new_hash=$(sha256_file "${new}")
-          if [[ -e "${cur}" ]]; then
-            if [[ ! -f "${cur}" || "$(sha256_file "${cur}")" != "${new_hash}" ]]; then
-              out "conflict: ${label}/${rel} (user-owned recipe)"
-              atomic_write "${proposal_dir}/conanfile.txt.patch" < "${new}" \
-                || die "${EXIT_OTHER}" "could not write Conan recipe proposal"
-              conflict=1
-              continue
-            fi
-          else
-            (set -o noclobber; cat "${new}" > "${cur}") \
-              || die "${EXIT_OTHER}" "could not create ${label}/${rel}"
-          fi
-          atomic_write "${base}" < "${new}" || die "${EXIT_OTHER}" "could not record Conan recipe base"
-          jq --arg hash "${new_hash}" '.files["conanfile.txt"] = $hash' "${state}" | atomic_write "${state}" \
-            || die "${EXIT_OTHER}" "could not record Conan recipe state"
-          continue
-        fi
+        rm -f -- "${base}" || die "${EXIT_OTHER}" "could not remove the unused base for ${rel}"
+        jq --arg f "${rel}" 'del(.files[$f])' "${state}" | atomic_write "${state}" \
+          || die "${EXIT_OTHER}" "could not update state for ${label}/${rel}"
+        continue
       fi
+
       new_hash=$(sha256_file "${new}")
+      if [[ -z "${recorded}" ]]; then
+        if [[ -e "${cur}" ]]; then
+          if [[ ! -f "${cur}" || "$(sha256_file "${cur}")" != "${new_hash}" ]]; then
+            local owner="user-owned file"
+            if [[ "${rel}" == conanfile.txt ]]; then owner="user-owned recipe"; fi
+            out "conflict: ${label}/${rel} (${owner})"
+            atomic_write "${proposal_dir}/${rel//\//_}.patch" < "${new}" \
+              || die "${EXIT_OTHER}" "could not write proposal for ${label}/${rel}"
+            conflict=1
+            continue
+          fi
+        else
+          mkdir -p -- "${cur%/*}" && (set -o noclobber; cat "${new}" > "${cur}") \
+            || die "${EXIT_OTHER}" "could not create ${label}/${rel}"
+        fi
+        atomic_write "${base}" < "${new}" || die "${EXIT_OTHER}" "could not record base for ${rel}"
+        jq --arg f "${rel}" --arg h "${new_hash}" '.files[$f] = $h' "${state}" | atomic_write "${state}" \
+          || die "${EXIT_OTHER}" "could not record state for ${label}/${rel}"
+        continue
+      fi
       if [[ ! -f "${cur}" || ! -f "${base}" ]]; then
         out "conflict: ${label}/${rel} (missing current or base copy)"
         atomic_write "${proposal_dir}/${rel//\//_}.patch" < "${new}" \
@@ -292,7 +308,7 @@ sync_apply() {
       jq --arg f "${rel}" --arg h "${new_hash}" '.files[$f] = $h' "${state}" \
         | atomic_write "${state}" \
         || die "${EXIT_OTHER}" "could not update state for ${label}/${rel}"
-    done < <(cmake_managed_files)
+    done < <(_sync_managed_files "${node}")
 
     jq --arg h "$(sha256_file "${node}/Forge.toml")" '.manifest = $h' "${state}" \
       | atomic_write "${state}" \
@@ -308,10 +324,14 @@ sync_apply() {
 # Refuse indirect sync destinations before changing managed files.
 sync_check_destinations() {
   local root="$1" rel
-  local -a paths=(cmake .forge .forge/state.json .forge/base .forge/base/cmake .forge/backups .forge/proposals)
+  local -a paths=(cmake cmake/deps .forge .forge/state.json .forge/base
+    .forge/base/cmake .forge/base/cmake/deps .forge/backups .forge/proposals)
   while IFS= read -r rel; do
     paths+=("${rel}" ".forge/base/${rel}")
-  done < <(cmake_managed_files)
+    if [[ "${rel}" == cmake/deps/* ]]; then
+      paths+=("${rel%/*}" ".forge/base/${rel%/*}")
+    fi
+  done < <(_sync_managed_files "${root}")
   for rel in "${paths[@]}"; do
     [[ ! -L "${root}/${rel}" ]] \
       || die "${EXIT_CONFLICT}" "refusing to sync a symlinked path: ${root}/${rel}"
