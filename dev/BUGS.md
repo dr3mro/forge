@@ -12,6 +12,24 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Critical / High | 0 / 1 |
 | Platforms tested | macOS (local) |
 
+## Workflow coverage
+
+| Workflow | Status | Tests | Failures | Notes |
+| --- | --- | ----: | -------: | ----- |
+| Project creation | Passed | 26 focused | 0 | bin/lib, C/C++, namespace, cppstd, reserved names |
+| Project configuration | Passed | focused | 0 | TOML schema, manifest variables, user CMake |
+| Conan dependencies | Passed | integration | 0 | real cached fmt, lock, status JSON, ASan build |
+| FetchContent dependencies | Partial | integration | 0 | Git pinning and offline fixtures; no live network fetch |
+| Mixed dependencies | Passed | integration | 0 | Conan + Git + path + vcpkg fixtures |
+| CMake synchronization | Passed | focused | 0 | drift, three-way merge, user-owned files |
+| Build and execution | Passed | integration | 0 | Debug/Release, targets, run, arguments, status |
+| Interactive CLI | Partial | focused | 0 | prompts and EOF via piped stdin; no real TTY matrix |
+| Invalid inputs | Passed | probes | 0 | 52 missing operands + 63 invalid values, no hangs |
+| Recovery testing | Passed | probes | 0 | build → clean → rebuild, sync, lock repair |
+| Portability | Partial | local | 0 | macOS only; Linux and hosted CI unverified |
+| Security | Partial | ShellCheck + probes | 0 | allowlisted sanitizer input, no eval, safe paths |
+| Randomized testing | Partial | probes | 0 | bounded deterministic invalid-value combinations |
+
 ## BUG-001 — Missing sanitized build suggests a command that builds the wrong tree
 
 **Severity:** Low  
