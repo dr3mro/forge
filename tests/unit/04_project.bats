@@ -52,6 +52,10 @@ load ../test_helper
   run_forge --no-color generate lib widget >/dev/null
   [ "$status" -eq 0 ]
   grep -q '^cppstd = "17"$' libs/widget/Forge.toml
+  cd libs/widget
+  run_forge --no-color generate lib nested >/dev/null
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "17"$' libs/nested/Forge.toml
   cd "$old"; rm -rf "$dir"
 }
 

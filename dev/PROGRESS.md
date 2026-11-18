@@ -107,4 +107,10 @@
 ### Next task — rebuild after clean link pruning (complete, verified)
 
 - Extended the clean integration test to assert that a subsequent `forge build` recreates both `target/compile_commands.json` and the root link after pruning. No product code change.
+- Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Committed and pushed as `40a6837`.
+
+### Next task — nested workspace standard inheritance (complete, verified)
+
+- Probe confirmed generating a member from inside another member still inherits the root `cppstd` (root 17 → outer 17 → inner 17).
+- Extended the inheritance regression test in `tests/unit/04_project.bats` to cover the nested case. No product code change.
 - Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Commit/push pending.
