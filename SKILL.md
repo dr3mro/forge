@@ -348,7 +348,7 @@ GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
   `com.apple.security.get-task-allow`, which makes `leaks`/LLDB able to attach.
   Empty identity disables signing; a keychain identity can be substituted in
   Forge.toml or `cmake/user.cmake`. Dylibs get signed but macOS does not embed
-  entitlements in them. The full 179-test Bats suite and ShellCheck passed.
+  entitlements in them. The full 181-test Bats suite and ShellCheck passed.
 
 ```bash
 cd /Users/amr/Repos/forge
