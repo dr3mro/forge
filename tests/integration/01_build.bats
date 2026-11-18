@@ -244,6 +244,11 @@ EOF
   [ ! -e "$built" ]
   [ ! -e target/compile_commands.json ]
   [ ! -e compile_commands.json ]
+
+  run_forge --no-color build >/dev/null
+  [ "$status" -eq 0 ]
+  [ -L target/compile_commands.json ]
+  [ -L compile_commands.json ]
 }
 
 @test "clean --all preserves unrelated target files and prunes stale database links" {

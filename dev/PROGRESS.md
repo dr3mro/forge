@@ -102,4 +102,9 @@
 
 - QA probe confirmed `generate lib plug --shared` builds and tests under ASan with `-fsanitize=address` on the C++ source and the dylib in the member build subdirectory.
 - Added a regression test in `tests/unit/07_devtools.bats` checking instrumentation and the shared artifact. No product code change needed.
+- Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Committed and pushed as `ca0861d`.
+
+### Next task — rebuild after clean link pruning (complete, verified)
+
+- Extended the clean integration test to assert that a subsequent `forge build` recreates both `target/compile_commands.json` and the root link after pruning. No product code change.
 - Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Commit/push pending.
