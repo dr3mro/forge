@@ -19,13 +19,13 @@ jobs:
       - name: Install tools (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install bash cmake ninja jq shellcheck bats-core doxygen
+          brew install bash cmake ninja jq shellcheck bats-core doxygen clang-format
 
       - name: Install tools (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y bash cmake ninja-build jq shellcheck bats git python3 python3-venv doxygen
+          sudo apt-get install -y bash cmake ninja-build jq shellcheck bats git python3 python3-venv doxygen clang-format
 
       - name: Install Conan in a virtual environment
         run: |
@@ -54,4 +54,3 @@ jobs:
 
       - name: Bats unit and integration tests
         run: bash tests/run.sh --print-output-on-failure
-
