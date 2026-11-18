@@ -185,6 +185,7 @@ forge_install() (
   if [ "$mode" = --update ] && [ "$source_mode" != directory ]; then
     step 'Checking the latest Forge release'
     installed_version=$(awk -F'"' '/^FORGE_VERSION=/{print $2; exit}' "$install/bin/forge")
+    installed_head=$(git -C "$install" rev-parse HEAD 2>/dev/null || :)
     latest_tag=$(
       git ls-remote --tags --refs "$source" 2>/dev/null \
         | awk '{ sub(/^refs\/tags\//, "", $2); print $2 }' \
@@ -193,9 +194,16 @@ forge_install() (
         | sort -V \
         | tail -n 1 || :
     )
-    if [ -n "$latest_tag" ] && [ "$latest_tag" = "$installed_version" ]; then
+    current=no
+    if [ -n "$latest_tag" ]; then
+      if [ "$latest_tag" = "$installed_version" ]; then current=yes; fi
+    elif [ -n "$installed_head" ]; then
+      remote_head=$(git ls-remote "$source" HEAD 2>/dev/null | awk 'NR == 1 {print $1}' || :)
+      if [ -n "$remote_head" ] && [ "$remote_head" = "$installed_head" ]; then current=yes; fi
+    fi
+    if [ "$current" = yes ]; then
       step_finish
-      printf 'Forge is already up to date (v%s).\n' "$latest_tag"
+      printf 'Forge is already up to date (v%s).\n' "${latest_tag:-$installed_version}"
       if [ -t 0 ]; then
         printf 'Reinstall anyway? [y/N] '
         IFS= read -r answer || answer=

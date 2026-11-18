@@ -267,8 +267,10 @@ before staging. It strips a leading `v`, selects the highest numeric tag with
 `sort -V`, and compares it with `FORGE_VERSION` read from the installed
 `bin/forge`. On a match it prints "Forge is already up to date (vX.Y.Z)." and
 exits 0 without touching the checkout; an interactive "Reinstall anyway?
-[y/N]" can force it. Directory sources and repos without numeric tags keep
-the old behavior.
+[y/N]" can force it. When a Git source has no numeric tags (as with the public
+repository), it compares the installed HEAD with `git ls-remote "$source" HEAD`
+instead and reports the installed version. Directory sources keep the old
+behavior.
 
 The explicit OCI dependency-image follow-up passed actionlint, six workflow
 and website checks, and the local Debug/Release packaging integration test.

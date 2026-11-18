@@ -65,6 +65,24 @@ setup() {
   [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$(git -C "$SOURCE" rev-parse HEAD)" ]
 }
 
+@test "update reports up to date when an untagged remote matches the installed commit" {
+  run sh "$SOURCE/install.sh" "file://$SOURCE"
+  [ "$status" -eq 0 ]
+  local initial
+  initial=$(git -C "$INSTALLATION" rev-parse HEAD)
+
+  run "$LAUNCHER" update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'already up to date'* ]]
+  [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$initial" ]
+
+  git -C "$SOURCE" commit -qm newer --allow-empty
+  run "$LAUNCHER" update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'already up to date'* ]]
+  [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$(git -C "$SOURCE" rev-parse HEAD)" ]
+}
+
 @test "installer preserves an unrelated launcher and an installation with extra files" {
   mkdir -p "${LAUNCHER%/*}"
   printf 'user data\n' > "$LAUNCHER"
