@@ -68,6 +68,9 @@ load ../test_helper
   run_forge --no-color generate lib fast --cppstd 23 >/dev/null
   [ "$status" -eq 0 ]
   grep -q '^cppstd = "23"$' libs/fast/Forge.toml
+  run_forge --no-color generate bin worker --cppstd 23 >/dev/null
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "23"$' bins/worker/Forge.toml
   run_forge --no-color generate lib bad --cppstd 14
   [ "$status" -eq 2 ]
   [ ! -e libs/bad ]
