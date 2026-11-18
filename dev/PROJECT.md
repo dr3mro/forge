@@ -543,6 +543,8 @@ with accurate context. Do this even for small fixes.
 - Resolved: BUG-005 — generated workspace members now inherit the root
   `cppstd` via `workspace_application_cppstd()`; full suite 202/202 green.
   Hosted CI and Linux remain unverified.
+- 2026-11-18 BUG-008: `clean --all --dry-run` no longer requires --yes in
+  noninteractive mode. Full suite 211/211 green.
 - 2026-11-18 `forge build --clean-first` added (FORGE_CLEAN_FIRST global,
   forwarded to cmake --build). Full suite 210/210 green.
 - 2026-11-18 generated shared libraries verified under ASan and covered by a

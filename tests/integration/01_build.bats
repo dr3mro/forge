@@ -255,6 +255,14 @@ EOF
   [ -L compile_commands.json ]
 }
 
+@test "clean --all dry run never asks for confirmation" {
+  mkdir -p target/debug
+  run_forge --no-color --dry-run clean --all < /dev/null
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would delete"* ]]
+  [ -d target/debug ]
+}
+
 @test "clean --all preserves unrelated target files and prunes stale database links" {
   run_forge --no-color build >/dev/null
   [ "$status" -eq 0 ]

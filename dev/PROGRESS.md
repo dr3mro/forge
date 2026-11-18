@@ -119,4 +119,9 @@
 
 - Added a `FORGE_CLEAN_FIRST` runtime flag and `--clean-first` option on `build`; it appends CMake's `--clean-first` to the build command without changing directories or touching user-owned files.
 - Catalog, website, `docs/commands.md`, unit dry-run test and real integration test aligned.
-- Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Committed and pushed as `177aa37`.
+
+### Next task — no confirmation for clean --all dry run (complete, verified)
+
+- BUG-008: `forge --dry-run clean --all` exited 6 in noninteractive mode because `confirm_action` ran before the preview branch. Dry runs now skip confirmation; real runs are unchanged.
+- Added an integration regression test with stdin from `/dev/null`. Full suite 211/211 green locally. Commit/push pending.

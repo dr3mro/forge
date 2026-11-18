@@ -39,8 +39,10 @@ cmd_clean() {
       [[ -d "${d}" ]] && dirs+=("${d}")
     done
     (( ${#dirs[@]} )) || { out "nothing to clean"; return "${EXIT_OK}"; }
-    confirm_action "Delete all build directories under target/?" \
-      || die "${EXIT_CONFLICT}" "clean aborted"
+    if (( ! FORGE_DRY_RUN )); then
+      confirm_action "Delete all build directories under target/?" \
+        || die "${EXIT_CONFLICT}" "clean aborted"
+    fi
   elif [[ -n "${profile}" ]]; then
     for d in "${target_dir}/${profile}" "${target_dir}/${profile}-"* "${target_dir}/sanitizers/"*/"${profile}"; do
       [[ -d "${d}" ]] && dirs+=("${d}")

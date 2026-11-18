@@ -7,8 +7,8 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Commands discovered | build, run, watch, test (sanitizer paths) |
 | Scenarios executed | Full Bats suite (201 tests) + focused probes |
 | Passed | 201 (final clean run) |
-| Failed | 0 (final); 7 defects found and fixed during the campaign |
-| Confirmed bugs | 7 (1 high, 2 medium, 4 low) |
+| Failed | 0 (final); 8 defects found and fixed during the campaign |
+| Confirmed bugs | 8 (1 high, 2 medium, 5 low) |
 | Critical / High | 0 / 1 |
 | Platforms tested | macOS (local) |
 
@@ -161,6 +161,20 @@ QA summary — iteration 1 (sanitizer build/run slice)
 **Root cause:** the missing-build `die` in `cmd_test` predated profile flags and used a fixed hint.  
 **Fix:** emit `forge build --release` when the selected profile is `release`.  
 **Verification:** focused test passed; full suite 208/208.
+
+## BUG-008 — `clean --all --dry-run` demanded confirmation in noninteractive mode
+
+**Severity:** Low  
+**Category:** UX / CLI  
+**Status:** Fixed — verified locally (211/211 Bats, ShellCheck clean)  
+**Reproducibility:** Always
+
+**Summary:** `forge --dry-run clean --all` with closed stdin exited 6 with `non-interactive operation requires --yes`, even though a preview deletes nothing.
+
+**Evidence:** disposable project, stdin from `/dev/null`; regression test `clean --all dry run never asks for confirmation`.  
+**Root cause:** `cmd_clean` called `confirm_action` before the `FORGE_DRY_RUN` preview branch.  
+**Fix:** skip confirmation when `FORGE_DRY_RUN` is set; real destructive runs still require consent.  
+**Verification:** focused test passed; full suite 211/211.
 
 ## Unverified risks
 
