@@ -61,4 +61,9 @@
 
 - Hypothesis: a member's `forge_project_options()` (`PARENT_SCOPE`) might override the root C++ standard for root targets. Disproved empirically: root 17 / member 23 produced `-std=c++17` for root sources and `-std=c++23` for member sources. The workspace helper's function scope confines the parent-scope write.
 - Added an integration test in `tests/integration/01_build.bats` asserting both standards in `compile_commands.json`, so the new per-member override cannot silently regress.
-- Verification: `shellcheck_exit=0`, `1..204`, `bats_exit=0` — 204/204 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..204`, `bats_exit=0` — 204/204 green locally. Committed and pushed as `d1c7d3a`.
+
+### Next task — getting-started discoverability (complete, docs-only)
+
+- Added `--cppstd` to the create section, sanitizer build/run/test examples to the build section, and member standard inheritance/override to the workspace paragraph in `docs/getting-started.md`.
+- Verified the website/install consistency tests (2/2) since they check `docs/getting-started.md` alongside README and the website. No code changes.

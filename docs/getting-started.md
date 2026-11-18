@@ -41,7 +41,11 @@ forge new hello          # binary project in ./hello
 forge new --lib mylib --defaults  # library project with default metadata
 forge init               # prompt and scaffold a binary in the current directory
 forge init --lib --defaults --name widgets --version 1.0.0
+forge new modern --defaults --cppstd 23
 ```
+
+Pass `--cppstd 17|20|23` to choose the C++ standard written to `Forge.toml`
+(default 20).
 
 `new` and `init` refuse to overwrite anything. Add `--git` to run `git init`.
 Forge prompts for the project name, version, description, author name, and
@@ -71,7 +75,17 @@ forge test               # CTest with --output-on-failure
 
 Debug and Release build in `target/debug/` and `target/release/`. Forge
 refreshes the CMake cache in place when the toolchain or dependency inputs
-change. Sanitizer builds stay under `target/sanitizers/`.
+change. Sanitizer builds stay under `target/sanitizers/`, isolated from the
+normal build:
+
+```bash
+forge build --sanitize address
+forge run --sanitize address --bin hello
+forge test --sanitize address
+```
+
+`build`, `run`, `watch` and `test` accept `address`/`asan`, `undefined`/`ubsan`,
+`leak`/`lsan`, or `thread`/`tsan`.
 
 After building, `forge run --debug` or `forge run --release` selects the current
 module’s sole application. A module can use artifacts built at the workspace
@@ -80,7 +94,9 @@ root. Use `--bin NAME` to select a specific executable.
 Generate a workspace library with `forge generate lib math --c` or
 `forge generate lib math_cpp --cpp`. Generated sources and headers inherit the
 project’s author information and have a blank `Purpose:` line. Forge registers
-the library and syncs the workspace automatically.
+the library and syncs the workspace automatically. Generated members inherit
+the root project’s C++ standard; pass `--cppstd 23` to override it for one
+member.
 
 ## 4. Change the project
 
