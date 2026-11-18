@@ -11,7 +11,7 @@ Forge is a Cargo-inspired orchestration CLI for conventional C++ projects, writt
 
 Core rules: never silently overwrite user work; changes go through `forge sync`; delegate resolution; every dependency states `conan`, `vcpkg`, `git` or `path`; no `eval`; arrays for subprocess args; frozen exit codes/JSON contract.
 
-Implemented commands: `help`, `version`, `doctor`, `new`, `init`, `build`, `run`, `test`, `clean`, `add`, `remove`, `deps lock|pin|status`, `sync --check|--diff|--apply`, `fmt --check`, `docs`, `metadata --format json`, `generate lib|bin`, `workflow init`, `update`, and `uninstall`.
+Implemented commands: `help`, `version`, `doctor`, `new`, `init`, `build`, `run`, `watch`, `test`, `clean`, `add`, `remove`, `deps lock|pin|status`, `sync --check|--diff|--apply`, `fmt --check`, `docs`, `metadata --format json`, `generate lib|bin`, `workflow init`, `update`, and `uninstall`.
 
 Exit codes: 0 ok · 1 other · 2 usage · 3 missing tool · 4 dependency/lock · 5 build/test · 6 conflict/unsafe write.
 
@@ -273,6 +273,34 @@ Release outputs. Local CI also locked, installed, and built against cached
 Conan fmt. The Docker build and hosted Windows/macOS jobs still need a
 GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
 
+- `forge add NAME` with no source prompts interactively (TTY or piped stdin) to
+  choose Conan, vcpkg, or GitHub; `--github` runs a wizard for repository URL,
+  tag/branch/SHA, and upstream CMake target. All options and examples live in
+  `lib/cli-reference.tsv`, so `forge add --help` and Bash/Zsh completion advertise
+  them. Non-interactive use must pass `--conan`, `--vcpkg`, `--github`, or
+  `--source` (usage error 2 otherwise).
+- After a successful add, `add_sync_dependency()` in `lib/commands/add.sh` asks
+  `[y/N]` before syncing and, for Conan, refreshing the lock. A decline keeps the
+  manifest edit and prints `forge sync --apply --yes` plus `forge deps lock` for
+  later; `--yes` skips the prompt. `sync_after_manifest_edit` forces a local
+  `FORGE_YES=1` so there is no second confirmation.
+- `forge watch` (`cmd_watch` in `lib/commands/run.sh`) builds and runs the
+  selected app, then supervises restarts. `lib/watch.py` polls the workspace
+  every 250 ms over source, header and build-input files (skipping `.git`,
+  `.forge`, `target`), terminates the previous process group on change (SIGKILL
+  after 3 s), and returns 130 on Ctrl-C. It re-invokes `forge run --build` with
+  the original global flags and forwarded `--` arguments. Dry-run only prints
+  the plan; `python3` becomes a runtime requirement.
+- Projects scaffold a user-owned root `user.cmake`, included after
+  `ProjectOptions.cmake` and before version source, CTest, dependencies,
+  workspace, and targets. Sync never records it. CMake defaults can be set in
+  `[cmake.variables]` in `Forge.toml` (ident keys; string/number/boolean values
+  rendered as literal bracket-quoted `set(... PARENT_SCOPE)`). For overrides
+  that need targets to exist, use `cmake_language(DEFER CALL ...)` in
+  `user.cmake`; toolchain options that must precede `project()` belong in a
+  preset or `forge build --toolchain`. See README "Generated CMake layout",
+  `docs/ownership.md`, and `docs/index.html`.
+
 ```bash
 cd /Users/amr/Repos/projector
 shellcheck -x -S warning bin/forge install.sh uninstall.sh lib/*.sh lib/commands/*.sh tests/run.sh tests/fakebin/*
@@ -315,12 +343,17 @@ PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
 - Generated root `CMakeLists.txt` orchestrates version resolution, source
   configuration, project options, dependency and workspace loading, target
   declaration, and CTest registration. Each module under `cmake/` defines one
-  function. Dependencies use `add_subdirectory(cmake/deps/<name>)` and
-  one `CMakeLists.txt` per dependency. Package lookups use `GLOBAL` to make
-  imported targets visible to consumers outside the dependency directory.
-  Workspace targets stay in their original build directories. Uppercase
-  dependency aliases use hyphen escapes in generated directory names so
-  aliases that differ only by case also work on macOS.
+  function. Dependencies are flat modules `cmake/deps/<name>.cmake`, each
+  defining `forge_load_dependency()` and included by `cmake/Dependencies.cmake`;
+  sync retires legacy `cmake/deps/<name>/CMakeLists.txt` files recorded in state.
+  `include(user.cmake OPTIONAL)` sits after `ProjectOptions.cmake` and before
+  version source, CTest, dependencies, workspace, and targets, and sync never
+  records it. `[cmake.variables]` entries are emitted as bracket-literal
+  `set(... PARENT_SCOPE)` lines from `forge_project_options`. Package lookups
+  use `GLOBAL` to make imported targets visible to consumers. Workspace targets
+  stay in their original build directories. Uppercase dependency aliases use
+  hyphen escapes in generated file names so aliases that differ only by case
+  also work on macOS.
 - Sync inventories per-dependency files using incoming render output and
   recorded state. This lets existing projects migrate via three-way sync.
   New files respect user-owned paths. Removed dependencies back up unmodified
@@ -339,7 +372,7 @@ writable Conan fixture cache, and ShellCheck passed. Regressions cover recipe
 creation in a workspace, vcpkg-only projects, and preservation of local edits.
 
 The audit of commit `4739852` covered every public command and subcommand
-on macOS. The full 146-test Bats suite passed. See `BUGS.md` for seven
+on macOS. The full 146-test Bats suite passed. That audit found seven
 manual findings, including cleanup path validation and sync status errors.
 All seven findings now have CLI regression tests. Cleanup verifies the exact
 physical path and reports refusal as exit 6. Use disposable projects and
@@ -350,7 +383,7 @@ Git resolves the exact requested branch or tag and peels annotated tags.
 Formatting previews distinguish write mode from check mode and preserve source
 files. All 160 Bats tests passed without skips, alongside ShellCheck.
 A real Conan fmt and vcpkg zlib build passed CTest and rebuilt offline.
-See `ISSUES.md` for the real vcpkg SQLite verification blocker.
+A real vcpkg SQLite verification remains an open blocker.
 
 ## 8. How to continue
 
@@ -359,7 +392,8 @@ See `ISSUES.md` for the real vcpkg SQLite verification blocker.
 user preferences, gotchas and verification results so the next session resumes
 with accurate context. Do this even for small fixes.
 
-1. Read `BUGS.md` for the CLI audit, reproducible failures, and likely causes.
+1. Review recent `git log` entries and the test suites for prior CLI audits,
+   reproducible failures, and likely causes.
 2. Before editing, run the verification commands in §4 to establish a baseline.
 3. For help/completion changes edit `lib/cli-reference.tsv` and `lib/cli-reference.sh`; for dependency changes edit `lib/conan.sh`, `lib/cmake.sh`, `lib/schema.jq`; for workspace behavior edit `lib/workspace.sh`, `lib/sync.sh`, `lib/commands/generate.sh`.
 4. Always write tests for new code and behavior, including bug fixes.

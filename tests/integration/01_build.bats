@@ -493,7 +493,7 @@ CPP
 }
 
 @test "sync upgrades a legacy CMake project and builds with its migrated dependency" {
-  run_forge add helper --source path --path vendor/helper --cmake-target helper
+  run_forge add --yes helper --source path --path vendor/helper --cmake-target helper
   [ "$status" -eq 0 ]
   mkdir -p vendor/helper
   cat > vendor/helper/CMakeLists.txt <<'CMAKE'
@@ -538,7 +538,7 @@ CMAKE
   done
   printf '\n# keep this root comment\n' >> CMakeLists.txt
   local -a additions=(cmake/Version.cmake cmake/VersionSource.cmake cmake/ProjectOptions.cmake
-    cmake/Workspace.cmake cmake/deps/helper/CMakeLists.txt)
+    cmake/Workspace.cmake cmake/deps/helper.cmake)
   for file in "${additions[@]}"; do
     rm "$file" ".forge/base/$file"
     jq --arg file "$file" 'del(.files[$file])' .forge/state.json > state.next
@@ -546,21 +546,116 @@ CMAKE
   done
   run_forge sync --diff
   [ "$status" -eq 0 ]
-  [[ "$output" == *'cmake/deps/helper/CMakeLists.txt'* ]]
-  [ ! -e cmake/deps/helper/CMakeLists.txt ]
+  [[ "$output" == *'cmake/deps/helper.cmake'* ]]
+  [ ! -e cmake/deps/helper.cmake ]
   run_forge sync --apply --yes
   [ "$status" -eq 0 ]
   grep -Fxq '# keep this root comment' CMakeLists.txt
   ! grep -Eq 'set\(CMAKE_CXX_STANDARD|configure_file\(|add_(library|executable|test)\(' CMakeLists.txt
-  for file in cmake/*.cmake cmake/deps/helper/CMakeLists.txt; do
+  for file in cmake/*.cmake cmake/deps/helper.cmake; do
     [ "$(grep -c '^function(' "$file")" -eq 1 ]
   done
-  grep -Fq 'add_subdirectory(cmake/deps/helper)' cmake/Dependencies.cmake
-  cmp cmake/deps/helper/CMakeLists.txt .forge/base/cmake/deps/helper/CMakeLists.txt
+  grep -Fq 'include(cmake/deps/helper.cmake)' cmake/Dependencies.cmake
+  cmp cmake/deps/helper.cmake .forge/base/cmake/deps/helper.cmake
   run_forge sync --check
   [ "$status" -eq 0 ]
   run_forge build
   [ "$status" -eq 0 ]
   run_forge test
+  [ "$status" -eq 0 ]
+}
+
+@test "CMake manifest variables are literal defaults and user.cmake takes precedence" {
+  cat >> Forge.toml <<'TOML'
+
+[cmake.variables]
+CMAKE_CXX_STANDARD = 23
+BUILD_TESTING = false
+FORGE_LITERAL = 'text ]=] ${UNCHANGED}'
+TOML
+  cat > user.cmake <<'CMAKE'
+if(NOT FORGE_LITERAL STREQUAL [==[text ]=] ${UNCHANGED}]==])
+  message(FATAL_ERROR "Manifest string was altered")
+endif()
+if(BUILD_TESTING)
+  message(FATAL_ERROR "Expected the manifest default to be OFF")
+endif()
+set(CMAKE_CXX_STANDARD 17)
+set(BUILD_TESTING ON)
+cmake_language(DEFER CALL target_compile_definitions hello PRIVATE USER_CMAKE_RAN)
+CMAKE
+  cp user.cmake "$DIR/user.before"
+  cat >> src/main.cpp <<'CPP'
+#if __cplusplus != 201703L || !defined(USER_CMAKE_RAN)
+#error "expected user.cmake settings to take precedence"
+#endif
+CPP
+  run_forge sync --apply --yes
+  [ "$status" -eq 0 ]
+  cmp "$DIR/user.before" user.cmake
+  jq -e '.files | has("user.cmake") | not' .forge/state.json
+  run_forge build
+  [ "$status" -eq 0 ]
+  run_forge test
+  [ "$status" -eq 0 ]
+}
+
+@test "watch rebuilds after a source edit and stops the previous application" {
+  run_forge watch --dry-run --bin hello -- example
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would watch"* ]]
+
+  run python3 - "$FORGE_BASH" "$FORGE_BIN" "$DIR/watch.log" <<'PY'
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+bash, forge, output = sys.argv[1:]
+log = Path(output)
+source = Path("src/main.cpp")
+
+def write_source(message):
+    source.write_text(
+        '#include <iostream>\n#include <unistd.h>\n'
+        f'int main(int argc, char** argv) {{ std::cout << "{message} " << '
+        'getpid() << " " << (argc > 1 ? argv[1] : "") << std::endl; for (;;) pause(); }\n'
+    )
+
+def wait_for(message):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        for line in log.read_text().splitlines():
+            if line.startswith(message + " "):
+                _, pid, arg = line.split()
+                assert arg == "example", line
+                return int(pid)
+        time.sleep(0.1)
+    raise AssertionError(log.read_text())
+
+write_source("first")
+with log.open("w") as stream:
+    watcher = subprocess.Popen(
+        [bash, forge, "watch", "--bin", "hello", "--", "example"],
+        stdout=stream, stderr=subprocess.STDOUT,
+    )
+    try:
+        first = wait_for("first")
+        write_source("second")
+        second = wait_for("second")
+        assert first != second
+        try:
+            os.kill(first, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError("first application was still running")
+    finally:
+        watcher.send_signal(signal.SIGINT)
+        watcher.wait(timeout=10)
+    assert watcher.returncode == 130, log.read_text()
+PY
   [ "$status" -eq 0 ]
 }

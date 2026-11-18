@@ -29,7 +29,7 @@ _sync_managed_files() {
   local node="$1"
   {
     cmake_managed_files "${FORGE_SYNC_TMP_BY_NODE[${node}]:-}"
-    jq -r '.files | keys[] | select(test("^cmake/deps/[A-Za-z_-][A-Za-z0-9_-]*/CMakeLists[.]txt$"))' \
+    jq -r '.files | keys[] | select(test("^cmake/deps/[A-Za-z_-][A-Za-z0-9_-]*([.]cmake|/CMakeLists[.]txt)$"))' \
       "${node}/.forge/state.json"
   } | awk '!seen[$0]++'
 }

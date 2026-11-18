@@ -64,5 +64,6 @@ if ! source "${FORGE_HOME}/lib/_load.sh"; then
 fi
 
 # Close any active step and clean up registered temp directories on exit.
+trap 'exit 143' TERM
 trap 'progress_finish "$?"; forge_cleanup_tmpdirs' EXIT
 forge_main "$@"

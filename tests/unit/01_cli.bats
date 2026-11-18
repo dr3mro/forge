@@ -12,7 +12,7 @@ load ../test_helper
   [ "$status" -eq 0 ]
   [[ "$output" == *"Quick start:"*"Commands:"* ]]
   local command
-  for command in help version doctor new init build run test clean add remove \
+  for command in help version doctor new init build run watch test clean add remove \
     'deps lock' 'deps pin' 'deps status' sync docs fmt metadata generate update uninstall 'workflow init'; do
     grep -Eq "^  ${command}( |$)" <<< "$output"
   done

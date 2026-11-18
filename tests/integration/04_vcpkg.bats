@@ -34,7 +34,7 @@ CMAKE
   run_forge --no-color generate lib member
   [ "$status" -eq 0 ]
   cd libs/member/src
-  run_forge --no-color add fmt --vcpkg
+  run_forge --no-color add --yes fmt --vcpkg
   [ "$status" -eq 0 ]
   grep -Fq 'target_link_libraries(member PRIVATE fmt::fmt)' ../cmake/Targets.cmake
   cat >> member.cpp <<'CPP'
@@ -57,18 +57,18 @@ CPP
 
 @test "vcpkg add validates port metadata and build requires a toolchain" {
   unset VCPKG_ROOT
-  run_forge --no-color add zlib --vcpkg
+  run_forge --no-color add --yes zlib --vcpkg
   [ "$status" -eq 2 ]
-  run_forge --no-color add zlib --vcpkg --cmake-package ZLIB --cmake-target ZLIB::ZLIB
+  run_forge --no-color add --yes zlib --vcpkg --cmake-package ZLIB --cmake-target ZLIB::ZLIB
   [ "$status" -eq 0 ]
-  grep -Fq 'find_package(ZLIB MODULE QUIET GLOBAL)' cmake/deps/zlib/CMakeLists.txt
+  grep -Fq 'find_package(ZLIB MODULE QUIET GLOBAL)' cmake/deps/zlib.cmake
   run_forge --no-color build
   [ "$status" -eq 3 ]
   [[ "$output" == *"set VCPKG_ROOT"* ]]
 }
 
 @test "vcpkg settings generate feature selection and exact version overrides" {
-  run_forge add fmt --vcpkg
+  run_forge add --yes fmt --vcpkg
   [ "$status" -eq 0 ]
   local baseline=1234567890abcdef1234567890abcdef12345678
   python3 - "$baseline" <<'PY'
@@ -99,12 +99,12 @@ PY
   local app
   app=$(sed -n 's/^name = "\([^"]*\)"$/\1/p' Forge.toml | head -1)
   cp Forge.toml before.toml
-  run_forge add sqlite3 --vcpkg --cmake-target "$app"
+  run_forge add --yes sqlite3 --vcpkg --cmake-target "$app"
   [ "$status" -eq 2 ]
   [[ "$output" == *'names a project target'* ]]
   cmp before.toml Forge.toml
 
-  run_forge add sqlite3 --vcpkg
+  run_forge add --yes sqlite3 --vcpkg
   [ "$status" -eq 0 ]
   grep -Fxq 'cmake_package = "unofficial-sqlite3"' Forge.toml
   grep -Fxq 'cmake_target = "unofficial::sqlite3::sqlite3"' Forge.toml
@@ -135,19 +135,19 @@ make_registry() {
   make_registry
   local baseline
   baseline=$(git -C "$VCPKG_ROOT" rev-parse HEAD)
-  run_forge add 'fmt/12.0.0#1' --vcpkg
+  run_forge add --yes 'fmt/12.0.0#1' --vcpkg
   [ "$status" -eq 0 ]
   grep -Fxq "vcpkg_baseline = \"$baseline\"" Forge.toml
   grep -Fxq 'version = "12.0.0#1"' Forge.toml
   cp Forge.toml before
   unset VCPKG_ROOT
-  run_forge add 'fmt/12.0.0#1' --vcpkg
+  run_forge add --yes 'fmt/12.0.0#1' --vcpkg
   [ "$status" -eq 0 ]
   [[ "$output" == *'already linked'* ]]
-  run_forge add fmt/12.2.0 --vcpkg
+  run_forge add --yes fmt/12.2.0 --vcpkg
   [ "$status" -eq 6 ]
   cmp before Forge.toml
-  run_forge add sqlite3/3.54.1 --vcpkg
+  run_forge add --yes sqlite3/3.54.1 --vcpkg
   [ "$status" -eq 0 ]
   grep -Fxq "vcpkg_baseline = \"$baseline\"" Forge.toml
   grep -Fxq 'version = "3.54.1"' Forge.toml
@@ -162,7 +162,7 @@ make_registry() {
   run_forge generate lib member
   [ "$status" -eq 0 ]
   cd libs/member
-  run_forge add fmt/12.0.0 --vcpkg
+  run_forge add --yes fmt/12.0.0 --vcpkg
   [ "$status" -eq 0 ]
   grep -Fxq "vcpkg_baseline = \"$baseline\"" ../../Forge.toml
   ! grep -Fq vcpkg_baseline Forge.toml
@@ -192,13 +192,13 @@ make_registry() {
 @test "versioned vcpkg dry run needs no registry and a failed baseline lookup keeps the manifest" {
   unset VCPKG_ROOT
   cp Forge.toml before
-  run_forge add fmt/12.0.0 --vcpkg --dry-run
+  run_forge add --yes fmt/12.0.0 --vcpkg --dry-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"would add 'fmt/12.0.0'"* ]]
-  run_forge add fmt/12.0.0 --vcpkg
+  run_forge add --yes fmt/12.0.0 --vcpkg
   [ "$status" -eq 3 ]
   [[ "$output" == *'set VCPKG_ROOT'* ]]
-  run_forge add fmt/ --vcpkg
+  run_forge add --yes fmt/ --vcpkg
   [ "$status" -eq 2 ]
   cmp before Forge.toml
 }

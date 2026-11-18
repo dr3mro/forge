@@ -1,8 +1,14 @@
 # shellcheck shell=bash
 # Forge command: run.
 
-# Locate and launch the selected built executable.
-cmd_run() {
+cmd_run() { _run_project 0 "$@"; }
+cmd_watch() { _run_project 1 "$@"; }
+
+# Locate and launch the selected executable, or supervise repeated build-and-run cycles.
+_run_project() {
+  local watch="$1" command=run
+  if (( watch )); then command=watch; fi
+  shift
   local bin="" profile="" forward_seen=0 build_first=0
   local -a forward=()
   while (( $# > 0 )); do
@@ -12,7 +18,11 @@ cmd_run() {
     fi
     case "$1" in
       --) forward_seen=1; shift ;;
-      --build) build_first=1; shift ;;
+      --build)
+        (( ! watch )) || die "${EXIT_USAGE}" "watch already builds the project"
+        build_first=1
+        shift
+        ;;
       --bin)
         bin="${2:-}"
         [[ -n "${bin}" && "${bin}" != -* ]] || die "${EXIT_USAGE}" "--bin requires a value"
@@ -30,7 +40,7 @@ cmd_run() {
         shift
         ;;
       --help | -h) cmd_help; return "${EXIT_OK}" ;;
-      -*) die "${EXIT_USAGE}" "unknown flag for 'run': $1" ;;
+      -*) die "${EXIT_USAGE}" "unknown flag for '${command}': $1" ;;
       *) die "${EXIT_USAGE}" "use '--' to forward arguments to the program" ;;
     esac
   done
@@ -38,6 +48,7 @@ cmd_run() {
   [[ -z "${bin}" || "${bin}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] \
     || die "${EXIT_USAGE}" "invalid executable name: ${bin}"
   manifest_load
+  local requested_profile="${profile}"
   [[ -n "${profile}" ]] || profile=$(mq '.build.default_profile // "debug"')
   local workspace workspace_build build_dir exe="" found_build=0 known_target=0
   local -a build_dirs=() candidates=()
@@ -54,6 +65,25 @@ cmd_run() {
     known_target=1
   elif mq -e --arg bin "${bin}" 'any((.bin // [])[]; .name == $bin)' >/dev/null; then
     known_target=1
+  fi
+
+  if (( watch )); then
+    require_tool python3
+    if (( FORGE_DRY_RUN )); then
+      status "dry-run: would watch ${workspace} and rebuild and run ${bin} (${profile})"
+      return "${EXIT_OK}"
+    fi
+    local -a args=("${BASH}" "${FORGE_HOME}/bin/forge" --manifest-path "${FORGE_MANIFEST_PATH}")
+    if (( FORGE_OFFLINE )); then args+=(--offline); fi
+    if (( FORGE_QUIET )); then args+=(--quiet); fi
+    if (( FORGE_VERBOSE )); then args+=(--verbose); fi
+    if (( FORGE_NO_COLOR )); then args+=(--no-color); fi
+    if (( FORGE_FORCE_COLOR )); then args+=(--force-color); fi
+    args+=(run --build --bin "${bin}")
+    if [[ -n "${requested_profile}" ]]; then args+=("--${requested_profile}"); fi
+    args+=(-- "${forward[@]}")
+    status "Watching ${workspace}. Press Ctrl-C to stop."
+    exec python3 "${FORGE_LIB}/watch.py" "${workspace}" "${args[@]}"
   fi
 
   if (( build_first )); then

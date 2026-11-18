@@ -14,6 +14,7 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `build [--release] [--target T] [--toolchain F] [--link-compile-commands]` | Validate drift, install Conan graph if needed, configure via preset, compile |
 | `build --debug-target T` | Build an executable with the debug preset and link it to `target/debug-T-launch` for LLDB |
 | `run [--build] [--debug\|--release] [--bin N] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
+| `watch [--bin NAME] [--debug|--release] [-- ARGS]` | Rebuild and run when workspace inputs change |
 | `test [FILTER] [--repeat N] [--sanitize NAME]` | CTest; `--sanitize` uses an isolated build dir |
 | `clean [--profile N] [--all]` | Delete only validated Forge-owned dirs under `target/`; `--all` confirms |
 | `add NAME[/VERSION] --conan [--target T]` | Discover Conan CMake metadata, link a local target, and sync |

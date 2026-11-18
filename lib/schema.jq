@@ -114,8 +114,24 @@ def check_dep($n; $d):
 
   (if type == "object" then
      (keys[] | select(. as $k |
-        (["schema", "package", "build", "bin", "lib", "test", "dependencies", "workspace"] | index($k)) | not)
+        (["schema", "package", "build", "bin", "lib", "test", "dependencies", "workspace", "cmake"] | index($k)) | not)
       | err("unknown top-level key '" + . + "'"))
+   else empty end),
+
+  (if has("cmake") then
+     if (.cmake | type) != "object" then err("[cmake] must be a table")
+     else
+       (.cmake | keys[] | select(. != "variables") | err("cmake: unknown key '" + . + "'")),
+       (if (.cmake | has("variables")) then
+          if (.cmake.variables | type) != "object" then err("[cmake.variables] must be a table")
+          else .cmake.variables | to_entries[]
+            | if (.key | ident | not) then err("cmake.variables: invalid name '" + .key + "'")
+              elif (.value | type | IN("string", "number", "boolean") | not)
+                then err("cmake.variables: '" + .key + "' must be a string, number or boolean")
+              else empty end
+          end
+        else empty end)
+     end
    else empty end),
 
   (if has("workspace") then

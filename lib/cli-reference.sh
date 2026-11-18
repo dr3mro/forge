@@ -45,6 +45,12 @@ cmd_help() {
     [[ -n "${synopsis}" ]] || die "${EXIT_USAGE}" "unknown help topic: ${scope}"
     reference_heading "forge ${synopsis}"
     out "${summary}"
+    if [[ "${scope}" == add ]]; then
+      out "Omit the source to choose Conan, vcpkg, or GitHub interactively."
+      out "GitHub prompts for the URL, tag/branch/SHA, and upstream CMake target."
+      out "Answer y to sync (and lock Conan), or pass --yes for scripts."
+      out "To do it later, run forge sync --apply, then forge deps lock for Conan."
+    fi
     if (( ${#rows[@]} )); then
       out ""
       reference_heading 'Subcommands:'
@@ -78,7 +84,7 @@ cmd_help() {
   reference_heading 'Common workflows'
   out '  forge new --name hello --git             # Prompt for remaining metadata'
   out '  forge generate lib widget --c            # Add and link a C library'
-  out '  forge add fmt --conan                     # Add, sync, and lock a Conan package'
+  out '  forge add fmt --conan --yes               # Add, sync, and lock a Conan package'
   out '  forge sync --diff && forge sync --apply --yes'
   out '  forge test --sanitize address'
   out '  forge help deps pin                      # Show options and an example'
@@ -140,7 +146,10 @@ reference_complete() {
         ;;
       -*=*) continue ;;
       -*)
-        if [[ "${scope}" == add ]]; then used["${word}"]=1; fi
+        if [[ "${scope}" == add ]]; then
+          used["${word}"]=1
+          if [[ "${word}" == --github ]]; then add_source=git; fi
+        fi
         for key in "${scope} ${word}" "global ${word}"; do
           if [[ "${options[${key}]:-0}" == 1 ]]; then awaiting="${key}"; break; fi
         done ;;
@@ -198,7 +207,7 @@ reference_complete() {
         matches=(--cmake-target)
       fi
     elif [[ -z "${add_source}${used[--conan]:-}${used[--vcpkg]:-}" ]]; then
-      matches=(--source --conan --vcpkg)
+      matches=(--source --conan --vcpkg --github)
     fi
   else
     case "${scope}" in

@@ -12,11 +12,13 @@ command	build	build [OPTIONS]	Configure and compile a project or target
 example	build	forge build --debug-target hello
 command	run	run [OPTIONS] [-- ARGS]	Run an executable, optionally building it first
 example	run	forge run --build --release --bin hello -- --version
+command	watch	watch [OPTIONS] [-- ARGS]	Build and run again when workspace inputs change
+example	watch	forge watch --bin hello -- --version
 command	test	test [FILTER] [OPTIONS]	Run CTest with a filter, repeat count, or sanitizer
 example	test	forge test smoke --repeat 3
 command	clean	clean [OPTIONS]	Remove Forge-owned build directories
 example	clean	forge clean --profile release --dry-run
-command	add	add NAME[/VERSION] [OPTIONS]	Declare a dependency and sync the workspace
+command	add	add NAME[/VERSION] [OPTIONS]	Declare a dependency and offer to sync the workspace
 example	add	forge add fmt/12.1.0 --conan --target hello
 command	remove	remove NAME [--lib]	Remove a dependency or detach a library, then sync
 example	remove	forge remove widget --lib
@@ -90,6 +92,10 @@ option	run	--release	Select the release build
 option	run	--debug	Select the debug build
 option	run	--bin NAME	Select a declared executable
 option	run	--	Forward remaining arguments to the executable
+option	watch	--release	Select the release build
+option	watch	--debug	Select the debug build
+option	watch	--bin NAME	Select a declared executable
+option	watch	--	Forward remaining arguments to the executable
 option	test	--repeat N	Repeat tests until failure, up to N times
 option	test	--allow-no-tests	Allow an empty CTest selection
 option	test	--release	Use the release preset
@@ -98,6 +104,7 @@ option	clean	--profile NAME	Clean the given build profile	debug release
 option	clean	--all	Clean all Forge build profiles (requires confirmation)
 option	add	--conan	Discover Conan CMake metadata and link a target
 option	add	--vcpkg	Add and link a vcpkg port
+option	add	--github	Add and link a Git dependency, prompting for missing details
 option	add	--source SOURCE	Declare a dependency source	conan vcpkg git path
 option	add	--ref REF	Set the Conan reference
 option	add	--url URL	Set the Git repository URL
@@ -127,6 +134,7 @@ option	generate bin	--cpp	Generate C++ sources
 example	new	forge new hello --defaults --version 1.2.3
 example	build	forge build --release --target hello
 example	test	forge test --sanitize address
+example	add	forge add fmt_git --github
 example	add	forge add fmt --vcpkg
 example	add	forge add fmt/12.0.0 --vcpkg
 example	add	forge add fmt_git --source git --url https://github.com/fmtlib/fmt.git --tag 12.0.0 --cmake-target fmt::fmt

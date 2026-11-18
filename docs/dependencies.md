@@ -17,9 +17,10 @@ are diagnosed across the **whole workspace graph**, not just the root.
 Each member declares its own dependencies in its own `Forge.toml`. When the root
 is built, all reachable Conan requirements are aggregated into the root
 `conanfile.txt` and `conan.lock`, so a single `conan install` supplies every
-member. Each dependency has a generated `cmake/deps/<name>/CMakeLists.txt` in
+member. Each dependency has a generated `cmake/deps/<name>.cmake` in
 the project that declares it. The project's `cmake/Dependencies.cmake` loads
-these directories with `add_subdirectory`. Conan and vcpkg package lookups
+these modules with `include()`. A path dependency module still uses
+`add_subdirectory()` for the upstream project. Conan and vcpkg package lookups
 expose imported targets to the consuming project. Git and path dependencies
 use their upstream CMake rules. In dependency directory names, Forge encodes
 each uppercase letter as a hyphen followed by its lowercase form so aliases
@@ -39,8 +40,8 @@ forge add fmt --source conan --ref fmt/12.1.0 \
   --cmake-target fmt::fmt-header-only --option header_only=True
 ```
 
-Forge syncs the enclosing workspace after the edit. Return to its root to
-refresh the shared Conan lock before building.
+Forge offers to sync the enclosing workspace after the edit. If you defer,
+run sync from the workspace root and refresh the shared Conan lock before building.
 
 ## Package manager shortcuts
 
@@ -71,8 +72,9 @@ CMake toolchain. An offline vcpkg build needs a previously configured build
 directory for the same dependency set and disables manifest installation.
 [Microsoft vcpkg documentation](https://learn.microsoft.com/vcpkg/users/buildsystems/cmake-integration)
 
-Both shortcuts link the sole application or library in the current module
-and apply workspace sync. At the workspace root, the sole application takes
+The package shortcuts link the sole application or library in the current
+module. Omit the source for an interactive choice, or select `--github`
+to enter the Git URL, revision type and value, and upstream CMake target. At the workspace root, the sole application takes
 precedence. Use `--target NAME` to select a specific local
 target, including a test target. `--dry-run` previews the selection without
 resolving or editing dependencies.
@@ -89,12 +91,11 @@ forge add logger --source path --path libs/logger --cmake-target logger
 forge build                      # Conan install, then CMake configure + FetchContent
 ```
 
-`add` edits the selected manifest and applies a three-way sync. On a merge
-conflict, Forge leaves a proposal and exits with code 6. After a successful
-sync, adding a Conan dependency refreshes the workspace-root lock. If Conan
-fails, the manifest and sync changes remain saved and the prior lock stays
-in place. Run `forge deps lock` after resolving the error or after editing
-Conan dependency settings directly.
+`add` edits the selected manifest and asks `[y/N]` before applying a
+three-way sync. Pass `--yes` to accept in scripts. If you defer, run
+`forge sync --apply` from the workspace root, then `forge deps lock` when you
+use Conan. If you accept sync and the Conan lock refresh fails, the manifest
+and sync changes remain saved and the prior lock stays in place.
 
 ## Conan integration
 

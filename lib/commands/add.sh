@@ -6,12 +6,15 @@ cmd_add() {
   local name="" source="" ref="" url="" rev="" tag="" branch="" path=""
   local cmake_target="" cmake_package="" shortcut="" target="" port="" conan_name="" port_version=""
   local -a options=() fields=()
+  local selected="" wizard=0
   while (( $# > 0 )); do
     case "$1" in
-      --conan | --vcpkg)
-        [[ -z "${shortcut}" || "${shortcut}" == "${1#--}" ]] \
-          || die "${EXIT_USAGE}" "--conan and --vcpkg cannot be combined"
-        shortcut="${1#--}"
+      --conan | --vcpkg | --github)
+        selected="${1#--}"
+        if [[ "${selected}" == github ]]; then selected=git; fi
+        [[ -z "${shortcut}" || "${shortcut}" == "${selected}" ]] \
+          || die "${EXIT_USAGE}" "choose only one of --conan, --vcpkg, or --github"
+        shortcut="${selected}"
         shift
         ;;
       --source=*)
@@ -49,6 +52,20 @@ cmd_add() {
   done
 
   [[ -n "${name}" ]] || die "${EXIT_USAGE}" "add requires a dependency NAME"
+  if [[ -z "${source}${shortcut}" ]]; then
+    if [[ -t 0 || -p /dev/stdin || -f /dev/stdin ]]; then
+      add_prompt selected "Dependency source [conan/vcpkg/github]" ""
+      case "${selected}" in
+        1 | conan) shortcut=conan ;;
+        2 | vcpkg) shortcut=vcpkg ;;
+        3 | github | git) shortcut=git ;;
+        *) die "${EXIT_USAGE}" "choose conan, vcpkg, or github (see 'forge add --help')" ;;
+      esac
+      wizard=1
+    else
+      die "${EXIT_USAGE}" "choose --conan, --vcpkg, --github, or --source (see 'forge add --help')"
+    fi
+  fi
   if [[ -n "${shortcut}" ]]; then
     [[ -z "${source}" || "${source}" == "${shortcut}" ]] \
       || die "${EXIT_USAGE}" "dependency source conflicts with --${shortcut}"
@@ -59,7 +76,7 @@ cmd_add() {
     *) die "${EXIT_USAGE}" "add requires a source: conan, vcpkg, git or path" ;;
   esac
   if [[ -n "${target}" && -z "${shortcut}" && "${source}" != vcpkg ]]; then
-    die "${EXIT_USAGE}" "--target requires --conan or --vcpkg"
+    die "${EXIT_USAGE}" "--target requires --conan, --vcpkg, or --github"
   fi
   if [[ "${source}" == conan || "${source}" == vcpkg ]]; then
     [[ -z "${url}${rev}${tag}${branch}${path}" ]] \
@@ -67,7 +84,19 @@ cmd_add() {
   elif [[ -n "${cmake_package}" ]]; then
     die "${EXIT_USAGE}" "--cmake-package requires Conan or vcpkg"
   fi
-  if [[ "${shortcut}" == conan ]]; then
+  if [[ "${shortcut}" == git ]]; then
+    if [[ -z "${url}" ]]; then add_prompt url "Git repository URL" ""; fi
+    if [[ -z "${rev}${tag}${branch}" ]]; then
+      add_prompt selected "Git revision type [tag/branch/sha]" tag
+      case "${selected}" in
+        tag) add_prompt tag "Git tag" "" ;;
+        branch) add_prompt branch "Git branch" "" ;;
+        sha) add_prompt rev "Full Git commit SHA" "" ;;
+        *) die "${EXIT_USAGE}" "choose tag, branch, or sha" ;;
+      esac
+    fi
+    if [[ -z "${cmake_target}" ]]; then add_prompt cmake_target "Upstream CMake target" ""; fi
+  elif [[ "${shortcut}" == conan ]]; then
     if [[ "${name}" == */* ]]; then
       [[ -z "${ref}" || "${ref}" == "${name}" ]] \
         || die "${EXIT_USAGE}" "positional reference conflicts with --ref"
@@ -109,6 +138,9 @@ cmd_add() {
         cmake_package="${cmake_package:-unofficial-sqlite3}"
         cmake_target="${cmake_target:-unofficial::sqlite3::sqlite3}" ;;
     esac
+    if (( wizard )) && [[ -z "${cmake_target}" ]]; then
+      add_prompt cmake_target "Upstream CMake target" ""
+    fi
     cmake_package="${cmake_package:-${port}}"
   fi
   [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] \
@@ -141,14 +173,25 @@ cmd_add() {
     status "dry-run: would add '${requested}' (${source}) to ${FORGE_MANIFEST_PATH} and link '${target}'"
     return "${EXIT_OK}"
   fi
+  if [[ "${source}" == git && -z "${rev}" && ( -n "${tag}" || -n "${branch}" ) ]]; then
+    (( FORGE_OFFLINE )) \
+      && die "${EXIT_DEP}" "--offline cannot resolve a tag/branch; supply --sha"
+    url="${url:-$(mq --arg n "${name}" '(.dependencies // {})[$n].url // empty')}"
+    [[ -n "${url}" ]] || die "${EXIT_USAGE}" "git dependency needs --url"
+    local selector=--branch
+    if [[ -n "${tag}" ]]; then selector=--tag; fi
+    rev=$(fetchcontent_resolve_ref "${url}" "${selector}" "${tag:-${branch}}") || return $?
+    status "resolved ${tag:-${branch}} -> ${rev}"
+  fi
   if [[ -n "${target}" ]] && mq -e --arg name "${name}" '.dependencies[$name] != null' >/dev/null; then
     local requested_options
     requested_options=$(printf '%s\n' "${options[@]}" | jq -Rn '[inputs | select(length > 0) | capture("^(?<key>[^=]+)=(?<value>.*)$")] | from_entries')
     mq -e --arg name "${name}" --arg source "${source}" --arg ref "${ref}" --arg port "${port}" --arg version "${port_version}" \
-      --arg imported "${cmake_target}" --arg package "${cmake_package}" --argjson options "${requested_options}" '
+      --arg url "${url}" --arg rev "${rev}" --arg imported "${cmake_target}" --arg package "${cmake_package}" --argjson options "${requested_options}" '
         .dependencies[$name] as $d
         | $d.source == $source and (($d.ref // "") == $ref) and (($d.port // "") == $port)
         and ($version == "" or ($d.version // "") == $version)
+        and ($source != "git" or ($d.url == $url and $d.rev == $rev))
         and ($imported == "" or $d.cmake_target == $imported)
         and ($package == "" or $d.cmake_package == $package)
         and (($d.conan_options // {} | map_values(if . == true then "True" elif . == false then "False" else tostring end)) == $options)
@@ -187,17 +230,6 @@ cmd_add() {
 
   if (( $(mq '((.dependencies // {}) | length)') == 0 )); then
     warn "Conan recipes and CMake dependencies can run third-party code during builds."
-  fi
-
-  if [[ "${source}" == "git" && -z "${rev}" && ( -n "${tag}" || -n "${branch}" ) ]]; then
-    (( FORGE_OFFLINE )) \
-      && die "${EXIT_DEP}" "--offline cannot resolve a tag/branch; use 'forge deps pin' with --sha"
-    url="${url:-$(mq --arg n "${name}" '(.dependencies // {})[$n].url // empty')}"
-    [[ -n "${url}" ]] || die "${EXIT_USAGE}" "git dependency needs --url"
-    local selector=--branch
-    if [[ -n "${tag}" ]]; then selector=--tag; fi
-    rev=$(fetchcontent_resolve_ref "${url}" "${selector}" "${tag:-${branch}}")
-    status "resolved ${tag:-${branch}} -> ${rev}"
   fi
 
   [[ -n "${ref}" ]] && fields+=("ref=${ref}")
@@ -250,9 +282,37 @@ cmd_add() {
   add_sync_dependency "${source}"
 }
 
+# Read one required answer or use the supplied default.
+add_prompt() {
+  local field="$1" prompt="$2" fallback="$3" answer
+  if [[ -n "${fallback}" ]]; then prompt+=" (${fallback})"; fi
+  printf '%s: ' "${prompt}" >&2
+  read -r answer || die "${EXIT_USAGE}" "input ended while asking for ${prompt} (see 'forge add --help')"
+  answer="${answer:-${fallback}}"
+  [[ -n "${answer}" && "${answer}" != -* ]] || die "${EXIT_USAGE}" "a value is required for ${prompt}"
+  printf -v "${field}" '%s' "${answer}"
+}
+
 # Apply workspace changes before locking, so conflicts leave the prior lock intact.
 add_sync_dependency() {
-  local source="$1"
+  local source="$1" answer="" prompt="Sync the workspace now?"
+  if [[ "${source}" == conan ]]; then prompt="Sync the workspace and refresh the Conan lock now?"; fi
+  if (( ! FORGE_YES )); then
+    if [[ -t 0 || -p /dev/stdin || -f /dev/stdin ]]; then
+      printf '%s [y/N] ' "${prompt}" >&2
+      read -r answer || answer=""
+    fi
+    case "${answer}" in
+      [yY] | [yY][eE][sS]) ;;
+      *)
+        out "To sync later, run 'forge sync --apply --yes' from the workspace root."
+        if [[ "${source}" == conan ]]; then
+          out "After syncing, refresh the Conan lock with 'forge deps lock' from the workspace root."
+        fi
+        return "${EXIT_OK}"
+        ;;
+    esac
+  fi
   sync_after_manifest_edit || {
     local sync_status=$?
     fail "manifest edit saved; resolve the sync issue and run 'forge sync --apply'"

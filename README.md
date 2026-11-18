@@ -34,20 +34,26 @@ forge docs
 
 Install Doxygen to use `forge docs`, then open `target/docs/html/index.html`.
 
+Run `forge add NAME` to choose Conan, vcpkg, or GitHub interactively.
+Forge saves your manifest edit, then asks whether to sync. For Conan, an
+affirmative answer also refreshes the workspace lock. Use `--yes` in scripts.
+To defer the work, run `forge sync --apply` from the workspace root and then
+`forge deps lock` if you added a Conan dependency.
+
 Add a Conan dependency from the project root or inside a workspace member.
 Forge generates `conanfile.txt` when the first Conan dependency is added.
 
 ```bash
-forge add fmt --conan
+forge add fmt --conan --yes
 # Or choose an exact version with: forge add fmt/12.2.0 --conan
 forge build
 ```
 
 Forge discovers the CMake package and exported target from Conan, links the
-current module’s sole application or library, and applies workspace sync.
+current module’s sole application or library, and offers to sync the workspace.
 At the workspace root, Forge prioritizes the sole application.
 Use `--target NAME` when the module has multiple targets. Adding a Conan
-dependency refreshes the workspace-root `conan.lock` after sync. Bare `fmt`
+dependency refreshes the workspace-root `conan.lock` when you accept sync. Bare `fmt`
 uses the tested `fmt/12.1.0` default.
 For other bare names, Forge asks Conan to resolve a version and records the
 exact result.
@@ -55,7 +61,7 @@ exact result.
 For vcpkg, set `VCPKG_ROOT` to a bootstrapped checkout and run:
 
 ```bash
-forge add fmt --vcpkg
+forge add fmt --vcpkg --yes
 forge build
 ```
 
@@ -70,13 +76,14 @@ with `--cmake-package`. See the [dependency guide](docs/dependencies.md).
 forge add fmt_git --source git \
   --url https://github.com/fmtlib/fmt.git \
   --tag 12.0.0 \
-  --cmake-target fmt::fmt
+  --cmake-target fmt::fmt --yes
 forge build
 ```
 
 `fmt_git` is the name you use in `Forge.toml`. Use the CMake target exported by
-the upstream project. Forge resolves the tag to a full commit SHA and syncs
-the generated FetchContent rules. You can also select a branch with
+the upstream project. Forge resolves the tag to a full commit SHA. Sync
+generates the FetchContent rules. Use `forge add fmt_git --github` to enter
+these details at prompts and link the dependency to a local target. You can also select a branch with
 `--branch NAME` or provide a full commit SHA with `--sha SHA`.
 
 If your target already has a nonempty `links` list, add `"fmt_git"` to it and
@@ -192,9 +199,10 @@ terminal, or `forge help deps pin` to open a specific subcommand.
 | `init` | `forge init --name widget --lib --defaults` | Prompt for project details in the current directory |
 | `build` | `forge build --debug-target hello` | Configure and compile a project or target |
 | `run` | `forge run --build --release --bin hello -- --version` | Run an executable, optionally building it first |
+| `watch` | `forge watch --bin hello -- --version` | Rebuild and run when workspace inputs change |
 | `test` | `forge test smoke --repeat 3` | Run CTest with a filter, repeat count, or sanitizer |
 | `clean` | `forge clean --profile release --dry-run` | Remove Forge-owned build directories |
-| `add` | `forge add fmt/12.1.0 --conan --target hello` | Declare a dependency and sync the workspace |
+| `add` | `forge add fmt/12.1.0 --conan --target hello` | Declare a dependency and offer to sync the workspace |
 | `remove` | `forge remove widget --lib` | Remove a dependency or detach a library, then sync |
 | `deps` | `forge deps status --format json` | Manage dependency locks and pins |
 | `deps lock` | `forge deps lock` | Create or refresh the workspace Conan lock |
@@ -232,9 +240,31 @@ forge new geometry --lib --namespace acme::geometry --defaults
 ## Generated CMake layout
 
 Generated projects use their root `CMakeLists.txt` to coordinate focused
-modules under `cmake/`. Each dependency has its own
-`cmake/deps/<name>/CMakeLists.txt`. To upgrade an existing project, preview the
-migration with `forge sync --diff` and apply it with `forge sync --apply`.
+modules under `cmake/`. Each dependency has its own module such as
+`cmake/deps/fmt.cmake`. Preview a layout migration with `forge sync --diff`
+and apply it with `forge sync --apply`.
+
+Set CMake defaults in `Forge.toml` using strings, numbers, or booleans.
+
+```toml
+[cmake.variables]
+CMAKE_CXX_STANDARD = 23
+BUILD_TESTING = false
+```
+
+Put project-specific overrides in the root `user.cmake`. Forge loads it
+after the manifest defaults and before dependencies, targets, and CTest.
+Sync preserves this file. Use `cmake_language(DEFER CALL ...)` for changes
+that require targets to exist. Set compiler and toolchain options that
+CMake needs before `project()` through a preset or `forge build --toolchain`.
+
+## Watch mode
+
+`forge watch` builds and runs the selected application. It stops the old
+process and restarts the build when C/C++ sources, headers, or build
+configuration files change anywhere in the workspace. Pass `--bin NAME`
+for a specific executable and put program arguments after `--`. Press Ctrl-C
+to stop watching.
 
 ## Static and shared libraries
 

@@ -87,7 +87,7 @@ teardown() {
 @test "auto-sync preserves a conflicting local edit and reports the saved manifest" {
   printf '# local project dependencies\n' > cmake/Dependencies.cmake
   cp cmake/Dependencies.cmake local.before
-  run_forge --no-color add logger --source path --path vendor/logger --cmake-target logger
+  run_forge --no-color add --yes logger --source path --path vendor/logger --cmake-target logger
   [ "$status" -eq 6 ]
   [[ "$output" == *"added dependency 'logger'"*conflict* ]]
   [[ "$output" == *"[✓] Checking workspace sync state"*"[✗] Applying workspace changes"* ]]
@@ -135,7 +135,7 @@ teardown() {
   [ "$status" -eq 0 ]
   cmp original.txt conanfile.txt
   jq -e '.files | has("conanfile.txt") | not' .forge/state.json
-  run_forge add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  run_forge add --yes fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
   [ "$status" -eq 6 ]
   [[ "$output" == *"user-owned recipe"* ]]
   cmp original.txt conanfile.txt
@@ -178,61 +178,80 @@ teardown() {
 }
 
 @test "sync retires removed dependency files and preserves local edits" {
-  run_forge add alpha --source path --path vendor/alpha --cmake-target alpha
+  run_forge add --yes alpha --source path --path vendor/alpha --cmake-target alpha
   [ "$status" -eq 0 ]
-  run_forge add beta --source path --path vendor/beta --cmake-target beta
+  run_forge add --yes beta --source path --path vendor/beta --cmake-target beta
   [ "$status" -eq 0 ]
 
-  printf '# local dependency edit\n' >> cmake/deps/beta/CMakeLists.txt
-  cp cmake/deps/beta/CMakeLists.txt beta.before
+  printf '# local dependency edit\n' >> cmake/deps/beta.cmake
+  cp cmake/deps/beta.cmake beta.before
   run_forge remove alpha
   [ "$status" -eq 0 ]
-  [ ! -e cmake/deps/alpha/CMakeLists.txt ]
-  [ ! -e .forge/base/cmake/deps/alpha/CMakeLists.txt ]
-  [ -n "$(find .forge/backups -name 'cmake_deps_alpha_CMakeLists.txt.*' -print -quit)" ]
-  grep -Fq 'add_subdirectory(cmake/deps/beta)' cmake/Dependencies.cmake
-  cmp beta.before cmake/deps/beta/CMakeLists.txt
+  [ ! -e cmake/deps/alpha.cmake ]
+  [ ! -e .forge/base/cmake/deps/alpha.cmake ]
+  [ -n "$(find .forge/backups -name 'cmake_deps_alpha.cmake.*' -print -quit)" ]
+  grep -Fq 'include(cmake/deps/beta.cmake)' cmake/Dependencies.cmake
+  cmp beta.before cmake/deps/beta.cmake
 
   run_forge remove beta
   [ "$status" -eq 0 ]
-  cmp beta.before cmake/deps/beta/CMakeLists.txt
-  ! grep -Fq 'add_subdirectory(cmake/deps/' cmake/Dependencies.cmake
+  cmp beta.before cmake/deps/beta.cmake
+  ! grep -Fq 'include(cmake/deps/' cmake/Dependencies.cmake
   jq -e '.files | keys | all(startswith("cmake/deps/") | not)' .forge/state.json
   run_forge sync --check
   [ "$status" -eq 0 ]
 
-  run_forge add beta --source path --path vendor/beta --cmake-target beta
+  run_forge add --yes beta --source path --path vendor/beta --cmake-target beta
   [ "$status" -eq 6 ]
-  cmp beta.before cmake/deps/beta/CMakeLists.txt
-  [ -f .forge/proposals/cmake_deps_beta_CMakeLists.txt.patch ]
+  cmp beta.before cmake/deps/beta.cmake
+  [ -f .forge/proposals/cmake_deps_beta.cmake.patch ]
 }
 
-@test "sync refuses a symlinked dependency directory before writing files" {
+@test "sync refuses a symlinked dependency module before writing files" {
   mkdir -p outside cmake/deps
-  ln -s "$PWD/outside" cmake/deps/logger
+  ln -s "$PWD/outside/logger.cmake" cmake/deps/logger.cmake
   cp cmake/Dependencies.cmake deps.before
 
-  run_forge add logger --source path --path vendor/logger --cmake-target logger
+  run_forge add --yes logger --source path --path vendor/logger --cmake-target logger
   [ "$status" -eq 6 ]
   [[ "$output" == *'refusing to sync a symlinked path:'*'cmake/deps/logger'* ]]
-  [ ! -e outside/CMakeLists.txt ]
+  [ ! -e outside/logger.cmake ]
   cmp deps.before cmake/Dependencies.cmake
 }
 
 @test "per-dependency directories distinguish aliases that differ only by case" {
-  run_forge add helper --source path --path vendor/lower --cmake-target lower_helper
+  run_forge add --yes helper --source path --path vendor/lower --cmake-target lower_helper
   [ "$status" -eq 0 ]
-  run_forge add Helper --source path --path vendor/upper --cmake-target upper_helper
+  run_forge add --yes Helper --source path --path vendor/upper --cmake-target upper_helper
   [ "$status" -eq 0 ]
-  grep -Fq 'vendor/lower' cmake/deps/helper/CMakeLists.txt
-  grep -Fq 'vendor/upper' cmake/deps/-helper/CMakeLists.txt
-  grep -Fq 'add_subdirectory(cmake/deps/helper)' cmake/Dependencies.cmake
-  grep -Fq 'add_subdirectory(cmake/deps/-helper)' cmake/Dependencies.cmake
+  grep -Fq 'vendor/lower' cmake/deps/helper.cmake
+  grep -Fq 'vendor/upper' cmake/deps/-helper.cmake
+  grep -Fq 'include(cmake/deps/helper.cmake)' cmake/Dependencies.cmake
+  grep -Fq 'include(cmake/deps/-helper.cmake)' cmake/Dependencies.cmake
 
   run_forge remove Helper
   [ "$status" -eq 0 ]
-  [ ! -e cmake/deps/-helper/CMakeLists.txt ]
-  grep -Fq 'vendor/lower' cmake/deps/helper/CMakeLists.txt
+  [ ! -e cmake/deps/-helper.cmake ]
+  grep -Fq 'vendor/lower' cmake/deps/helper.cmake
+  run_forge sync --check
+  [ "$status" -eq 0 ]
+}
+
+@test "sync moves tracked nested dependency modules to the flat layout" {
+  run_forge add --yes logger --source path --path vendor/logger --cmake-target logger
+  [ "$status" -eq 0 ]
+  for root in cmake .forge/base/cmake; do
+    mkdir "$root/deps/logger"
+    mv "$root/deps/logger.cmake" "$root/deps/logger/CMakeLists.txt"
+  done
+  jq '.files["cmake/deps/logger/CMakeLists.txt"] = .files["cmake/deps/logger.cmake"] |
+      del(.files["cmake/deps/logger.cmake"])' .forge/state.json > next
+  mv next .forge/state.json
+  run_forge sync --apply --yes
+  [ "$status" -eq 0 ]
+  [ -f cmake/deps/logger.cmake ]
+  [ ! -e cmake/deps/logger/CMakeLists.txt ]
+  [ ! -e .forge/base/cmake/deps/logger/CMakeLists.txt ]
   run_forge sync --check
   [ "$status" -eq 0 ]
 }

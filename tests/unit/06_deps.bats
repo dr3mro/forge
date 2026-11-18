@@ -34,7 +34,7 @@ teardown() {
 @test "add appends a conan dependency and creates a backup" {
   local before
   before=$(sha256_file CMakeLists.txt)
-  run_forge --no-color add fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt
+  run_forge --no-color add --yes fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt
   [ "$status" -eq 0 ]
   grep -q '\[dependencies.fmt\]' Forge.toml
   grep -q 'ref = "fmt/12.1.0"' Forge.toml
@@ -47,8 +47,8 @@ teardown() {
 }
 
 @test "add refuses duplicate dependency names" {
-  run_forge --no-color add fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt >/dev/null
-  run_forge --no-color add fmt --source conan --ref fmt/12.1.1 --cmake-target fmt::fmt
+  run_forge --no-color add --yes fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt >/dev/null
+  run_forge --no-color add --yes fmt --source conan --ref fmt/12.1.1 --cmake-target fmt::fmt
   [ "$status" -eq 2 ]
   [[ "$output" == *already\ exists* ]]
 }
@@ -56,14 +56,14 @@ teardown() {
 @test "add --dry-run leaves the manifest untouched" {
   local before
   before=$(sha256_file Forge.toml)
-  run_forge --no-color add --dry-run fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt
+  run_forge --no-color add --yes --dry-run fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt
   [ "$status" -eq 0 ]
   [ "$(sha256_file Forge.toml)" = "${before}" ]
 }
 
 @test "remove deletes exactly one dependency block" {
-  run_forge --no-color add fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt >/dev/null
-  run_forge --no-color add logger --source path --path libs --cmake-target logger >/dev/null
+  run_forge --no-color add --yes fmt --source conan --ref fmt/12.1.0 --cmake-target fmt::fmt >/dev/null
+  run_forge --no-color add --yes logger --source path --path libs --cmake-target logger >/dev/null
   run_forge --no-color remove fmt
   [ "$status" -eq 0 ]
   [ "$(grep -c '\[dependencies\.' Forge.toml)" -eq 1 ]
@@ -71,7 +71,7 @@ teardown() {
 }
 
 @test "deps pin resolves a tag to a full SHA" {
-  run_forge --no-color add gdep --source git --url "file://${GITREPO}" --sha "$SHA" --cmake-target gdep::gdep >/dev/null
+  run_forge --no-color add --yes gdep --source git --url "file://${GITREPO}" --sha "$SHA" --cmake-target gdep::gdep >/dev/null
   sed -i '' "s/${SHA}/0000000000000000000000000000000000000000/" Forge.toml 2>/dev/null \
     || sed -i "s/${SHA}/0000000000000000000000000000000000000000/" Forge.toml
   run_forge --no-color deps pin gdep --tag v1.0.0
@@ -80,7 +80,7 @@ teardown() {
 }
 
 @test "deps pin refuses tag resolution in offline mode" {
-  run_forge --no-color add gdep --source git --url "file://${GITREPO}" --sha "$SHA" --cmake-target gdep::gdep >/dev/null
+  run_forge --no-color add --yes gdep --source git --url "file://${GITREPO}" --sha "$SHA" --cmake-target gdep::gdep >/dev/null
   run_forge --no-color --offline deps pin gdep --tag v1.0.0
   [ "$status" -eq 4 ]
 }
@@ -113,21 +113,21 @@ teardown() {
 }
 
 @test "duplicate cmake_target is diagnosed" {
-  run_forge --no-color add fmt --source conan --ref fmt/12.1.0 --cmake-target dup::target >/dev/null
-  run_forge --no-color add spdlog --source conan --ref spdlog/1.14.1 --cmake-target dup::target >/dev/null
+  run_forge --no-color add --yes fmt --source conan --ref fmt/12.1.0 --cmake-target dup::target >/dev/null
+  run_forge --no-color add --yes spdlog --source conan --ref spdlog/1.14.1 --cmake-target dup::target >/dev/null
   run_forge --no-color deps status
   [ "$status" -eq 4 ]
   [[ "$output" == *"duplicate cmake_target"* ]]
 }
 
 @test "add diagnoses an option missing its value" {
-  run_forge --no-color add logger --source path --path
+  run_forge --no-color add --yes logger --source path --path
   [ "$status" -eq 2 ]
   [[ "$output" == *"--path requires a value"* ]]
 }
 
 @test "remove strips explicit multiline links and syncs the Conan recipe" {
-  run_forge add fmt --conan --ref fmt/12.1.0 --cmake-package fmt --cmake-target fmt::fmt
+  run_forge add --yes fmt --conan --ref fmt/12.1.0 --cmake-package fmt --cmake-target fmt::fmt
   [ "$status" -eq 0 ]
   python3 - <<'PY'
 from pathlib import Path
@@ -167,7 +167,7 @@ PY
   run_forge deps lock
   [ "$status" -eq 0 ]
   [[ "$output" == *"no Conan dependencies to lock"* ]]
-  run_forge add gdep --source git --url "file://${GITREPO}" --tag v1.0.0 --cmake-target gdep::gdep
+  run_forge add --yes gdep --source git --url "file://${GITREPO}" --tag v1.0.0 --cmake-target gdep::gdep
   [ "$status" -eq 0 ]
   run_forge deps pin gdep --sha invalid
   [ "$status" -eq 2 ]
@@ -179,7 +179,7 @@ PY
 }
 
 @test "retiring a Conan recipe preserves local edits and stops tracking it" {
-  run_forge add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  run_forge add --yes fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
   [ "$status" -eq 0 ]
   printf '\n# Keep this local change\n' >> conanfile.txt
   cp conanfile.txt edited.txt
@@ -194,7 +194,7 @@ PY
 
 @test "deps pin rejects competing selectors before changing the manifest" {
   git -C "$GITREPO" branch audit-branch
-  run_forge add gdep --source git --url "file://${GITREPO}" \
+  run_forge add --yes gdep --source git --url "file://${GITREPO}" \
     --sha 0000000000000000000000000000000000000000 --cmake-target gdep::gdep
   [ "$status" -eq 0 ]
   cp Forge.toml manifest.before
@@ -216,10 +216,10 @@ PY
   local branch_sha
   branch_sha=$(git -C "$GITREPO" rev-parse refs/heads/shared)
 
-  run_forge add gdep --source git --url "file://${GITREPO}" --tag shared --branch shared --cmake-target gdep::gdep
+  run_forge add --yes gdep --source git --url "file://${GITREPO}" --tag shared --branch shared --cmake-target gdep::gdep
   [ "$status" -eq 2 ]
   ! grep -Fq '[dependencies.gdep]' Forge.toml
-  run_forge add gdep --source=git --url "file://${GITREPO}" --tag shared --cmake-target gdep::gdep
+  run_forge add --yes gdep --source=git --url "file://${GITREPO}" --tag shared --cmake-target gdep::gdep
   [ "$status" -eq 0 ]
   grep -Fxq "rev = \"$SHA\"" Forge.toml
   run_forge deps pin gdep --branch shared

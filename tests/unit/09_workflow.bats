@@ -44,7 +44,7 @@ teardown() {
   git -C "$dependency" add CMakeLists.txt
   git -C "$dependency" -c user.name=Tests -c user.email=ci@example.test commit -qm initial
   first=$(git -C "$dependency" rev-parse HEAD)
-  run_forge add upstream --source git --url "file://$dependency" --rev "$first" --cmake-target upstream
+  run_forge add --yes upstream --source git --url "file://$dependency" --rev "$first" --cmake-target upstream
   [ "$status" -eq 0 ]
   run python3 .github/forge/ci.py prepare
   [ "$status" -eq 0 ]

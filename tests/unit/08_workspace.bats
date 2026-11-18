@@ -40,10 +40,10 @@ teardown() {
   printf 'add_library(logger INTERFACE)\n' > deps/logger/CMakeLists.txt
   mkdir -p src/nested
   cd src/nested
-  run_forge --no-color add logger --source path --path deps/logger --cmake-target logger --dry-run
+  run_forge --no-color add --yes logger --source path --path deps/logger --cmake-target logger --dry-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"/libs/lib1/Forge.toml"* ]]
-  run_forge --no-color add logger --source path --path deps/logger --cmake-target logger
+  run_forge --no-color add --yes logger --source path --path deps/logger --cmake-target logger
   [ "$status" -eq 0 ]
   [[ "$output" == *"/libs/lib1/Forge.toml"* ]]
   grep -Fq '[dependencies.logger]' ../../Forge.toml
@@ -52,7 +52,7 @@ teardown() {
   run_forge --no-color generate lib lib2 >/dev/null
   cd ../..
 
-  grep -q 'deps/logger' libs/lib1/cmake/deps/logger/CMakeLists.txt
+  grep -q 'deps/logger' libs/lib1/cmake/deps/logger.cmake
   grep -q 'libs/lib2' libs/lib1/cmake/Workspace.cmake
 
   run_forge --no-color sync --check
