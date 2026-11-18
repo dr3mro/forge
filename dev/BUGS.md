@@ -7,8 +7,8 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Commands discovered | build, run, watch, test (sanitizer paths) |
 | Scenarios executed | Full Bats suite (201 tests) + focused probes |
 | Passed | 201 (final clean run) |
-| Failed | 0 (final); 8 defects found and fixed during the campaign |
-| Confirmed bugs | 8 (1 high, 2 medium, 5 low) |
+| Failed | 0 (final); 9 defects found and fixed during the campaign |
+| Confirmed bugs | 9 (1 high, 3 medium, 5 low) |
 | Critical / High | 0 / 1 |
 | Platforms tested | macOS (local) |
 
@@ -175,6 +175,21 @@ QA summary — iteration 1 (sanitizer build/run slice)
 **Root cause:** `cmd_clean` called `confirm_action` before the `FORGE_DRY_RUN` preview branch.  
 **Fix:** skip confirmation when `FORGE_DRY_RUN` is set; real destructive runs still require consent.  
 **Verification:** focused test passed; full suite 211/211.
+
+## BUG-009 — `metadata --format json` nested targets array
+
+**Severity:** Medium  
+**Category:** JSON contract  
+**Status:** Fixed — verified locally (211/211 Bats, ShellCheck clean)  
+**Reproducibility:** Always
+
+**Summary:** The JSON `targets` field was an array containing one array of target objects instead of a flat array of objects, so consumers using `.targets[0].name` got null.
+
+**Evidence:** live `forge metadata --format json` showed `"targets": [[ {...}, {...} ]]`.  
+**Root cause:** the jq filter in `cmd_metadata` wrapped the concatenated bin/lib/test array in extra brackets; `mq_json` does not add wrapping.  
+**Fix:** remove the redundant array wrapper.  
+**Regression test:** `metadata --format json emits ANSI-free stable JSON` now asserts `.targets` is a flat array with two entries and checks the first target's kind and name.  
+**Verification:** full suite 211/211.
 
 ## Unverified risks
 

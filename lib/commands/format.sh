@@ -83,9 +83,9 @@ cmd_metadata() {
   local pkg targets deps profile build_dir lock_state rc=0
   pkg=$(mq_json '{name: .package.name, version: .package.version, cppstd: .package.cppstd}')
   targets=$(mq_json '
-    [((.bin // []) | map({kind: "bin", name: .name, path: .path, links: (.links // [])}))
-     + ((.lib // []) | map({kind: "lib", name: .name, path: .path, links: (.links // [])}))
-     + ((.test // []) | map({kind: "test", name: .name, path: .path, links: (.links // [])}))]')
+    ((.bin // []) | map({kind: "bin", name: .name, path: .path, links: (.links // [])}))
+    + ((.lib // []) | map({kind: "lib", name: .name, path: .path, links: (.links // [])}))
+    + ((.test // []) | map({kind: "test", name: .name, path: .path, links: (.links // [])}))')
   deps=$(mq_json '
     [((.dependencies // {}) | to_entries[] |
       {name: .key, source: .value.source, cmake_target: .value.cmake_target})]')

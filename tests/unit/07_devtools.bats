@@ -18,7 +18,11 @@ teardown() {
   run_forge --no-color metadata --format json
   [ "$status" -eq 0 ]
   [[ "$output" != *$'\033'* ]]
-  run jq -e '.schema == 1 and .package.name == "app" and (.targets | length == 1)' <<< "$output"
+  run jq -e '
+    .schema == 1 and .package.name == "app"
+    and (.targets | type == "array" and length == 2)
+    and (.targets[0].kind == "bin" and .targets[0].name == "app")
+  ' <<< "$output"
   [ "$status" -eq 0 ]
 }
 

@@ -124,4 +124,9 @@
 ### Next task — no confirmation for clean --all dry run (complete, verified)
 
 - BUG-008: `forge --dry-run clean --all` exited 6 in noninteractive mode because `confirm_action` ran before the preview branch. Dry runs now skip confirmation; real runs are unchanged.
-- Added an integration regression test with stdin from `/dev/null`. Full suite 211/211 green locally. Commit/push pending.
+- Added an integration regression test with stdin from `/dev/null`. Full suite 211/211 green locally. Committed and pushed as `8fc6b72`, followed by `460452d` (bin `--cppstd` test coverage).
+
+### Next task — metadata targets array shape (complete, verified)
+
+- BUG-009: `metadata --format json` emitted a nested `targets` array. Removed the redundant jq array wrapper; strengthened the regression test to assert a flat array of target objects.
+- Verification: `shellcheck_exit=0`, `1..211`, `bats_exit=0` — 211/211 green locally. Commit/push pending.
