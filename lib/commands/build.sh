@@ -32,6 +32,7 @@ forge_perform_build() {
   fi
   local -a bargs=(--build "${build_dir}" --config "${profile}" --parallel "$(forge_jobs)")
   [[ -n "${target}" ]] && bargs+=(--target "${target}")
+  [[ "${FORGE_CLEAN_FIRST:-0}" != 1 ]] || bargs+=(--clean-first)
   if (( FORGE_DRY_RUN )); then
     status "dry-run: would run cmake ${bargs[*]}"
     return 0
@@ -49,6 +50,7 @@ cmd_build() {
     case "$1" in
       --debug-target) debug_target="${2:-}"; [[ -n "${debug_target}" ]] || die "${EXIT_USAGE}" "--debug-target requires a name"; shift 2 ;;
       --release) release=1; shift ;;
+      --clean-first) FORGE_CLEAN_FIRST=1; shift ;;
       --sanitize) sanitize="${2:-}"; [[ -n "${sanitize}" ]] || die "${EXIT_USAGE}" "--sanitize requires a value"; shift 2 ;;
       --sanitize=*) sanitize="${1#*=}"; shift ;;
       --target)  target="${2:-}"; [[ -n "${target}" ]] || die "${EXIT_USAGE}" "--target requires a value"; shift 2 ;;

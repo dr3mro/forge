@@ -11,7 +11,7 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `doctor` | Actionable checks for Bash, CMake, Conan 2, Git, jq, parser, compiler, Ninja, ShellCheck |
 | `new [NAME] [--bin\|--lib] [--git]` | Prompt for metadata and scaffold a project directory |
 | `init [--bin\|--lib] [--git]` | Prompt for project and author details, then scaffold in the current directory |
-| `build [--release] [--target T] [--toolchain F] [--sanitize NAME] [--link-compile-commands]` | Validate drift, install Conan graph if needed, configure via preset, compile |
+| `build [--release] [--clean-first] [--target T] [--toolchain F] [--sanitize NAME] [--link-compile-commands]` | Validate drift, install Conan graph if needed, configure via preset, compile |
 | `build --debug-target T` | Build an executable with the debug preset and link it to `target/debug-T-launch` for LLDB |
 | `run [--build] [--debug\|--release] [--bin N] [--sanitize NAME] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
 | `watch [--bin NAME] [--debug|--release] [--sanitize NAME] [-- ARGS]` | Rebuild and run when workspace inputs change |
@@ -48,6 +48,9 @@ application project's name. Generated members also inherit the root project's
 from `new --lib` and `init --lib` use the same template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
 to choose library linkage. New root projects automatically receive GitHub
 Actions for Debug and Release on Windows, Linux, and macOS.
+
+Use `--clean-first` to ask CMake to clean build outputs before compiling,
+without changing the build directory or deleting user-owned files.
 
 `--sanitize NAME` is accepted by `build`, `run`, `watch`, and `test`. Names are
 `address` (`asan`), `undefined` (`ubsan`), `leak` (`lsan`), or `thread`

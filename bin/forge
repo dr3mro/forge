@@ -54,6 +54,7 @@ FORGE_MANIFEST_PATH=""
 FORGE_ROOT=""
 FORGE_EXTRA_CMAKE_ARGS=()
 FORGE_SANITIZER=""
+FORGE_CLEAN_FIRST=0
 FORGE_LINK_COMPILE_COMMANDS=0
 
 # Module loader; sources every module with no source-time side effects.

@@ -40,6 +40,10 @@ teardown() {
   run_forge --no-color run --debug
   [ "$status" -eq 0 ]
   [[ "$output" == *"Hello from hello"* ]]
+
+  run_forge --no-color build --clean-first
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"build ok"* ]]
 }
 
 @test "lib project configures, builds and tests" {

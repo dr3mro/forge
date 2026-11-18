@@ -113,4 +113,10 @@
 
 - Probe confirmed generating a member from inside another member still inherits the root `cppstd` (root 17 → outer 17 → inner 17).
 - Extended the inheritance regression test in `tests/unit/04_project.bats` to cover the nested case. No product code change.
+- Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Committed and pushed as `fb36ff9`.
+
+### Next task — `forge build --clean-first` (complete, verified)
+
+- Added a `FORGE_CLEAN_FIRST` runtime flag and `--clean-first` option on `build`; it appends CMake's `--clean-first` to the build command without changing directories or touching user-owned files.
+- Catalog, website, `docs/commands.md`, unit dry-run test and real integration test aligned.
 - Verification: `shellcheck_exit=0`, `1..210`, `bats_exit=0` — 210/210 green locally. Commit/push pending.

@@ -194,6 +194,9 @@ teardown() {
   [[ "$output" == *"dry-run: would run cmake"* ]]
   run_forge --dry-run build --target=sample --toolchain=toolchain.cmake
   [ "$status" -eq 0 ]
+  run_forge --dry-run build --clean-first
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--clean-first"* ]]
   run_forge build --debug-target sample --release
   [ "$status" -eq 2 ]
   run_forge build --toolchain=missing

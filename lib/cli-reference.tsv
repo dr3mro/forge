@@ -87,6 +87,7 @@ option	init	--lib	Scaffold a library
 option	init	--git	Initialize Git and register the release-tag hook
 option	init	--defaults	Skip prompts for omitted fields
 option	build	--release	Build the release preset
+option	build	--clean-first	Clean build outputs before compiling
 option	build	--sanitize NAME	Build with a sanitizer in an isolated directory	address undefined leak thread asan ubsan lsan tsan
 option	build	--target NAME	Build one CMake target
 option	build	--toolchain FILE	Use a CMake toolchain file
