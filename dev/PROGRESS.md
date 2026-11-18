@@ -130,3 +130,20 @@
 
 - BUG-009: `metadata --format json` emitted a nested `targets` array. Removed the redundant jq array wrapper; strengthened the regression test to assert a flat array of target objects.
 - Verification: `shellcheck_exit=0`, `1..211`, `bats_exit=0` — 211/211 green locally. Commit/push pending.
+
+### Hosted CI investigation and fix (complete, verified)
+
+- Fetched `gh run list` for `dr3mro/forge`: `forge-ci` failed on the last several
+  pushes while `forge-pages` stayed green. Pulled `gh run view 44341745295
+  --log-failed`; macOS job had two failures: test 156 (update notice missing)
+  and test 191 (`watch` restart timeout).
+- Root causes: `timeout` unavailable on the macOS runner, and unhandled
+  `PermissionError` from `os.killpg` in `lib/watch.py`.
+- Fixes: portable `_update_check_ls_remote()` with functional timeout detection
+  and `GIT_TERMINAL_PROMPT=0`; `signal_child()` fallback to direct child signals
+  in `watch.py`. Both defects were reproduced locally before the fix.
+- A `.gitignore` was added after an accidental `__pycache__` artifact was
+  committed with the first fix commit and then removed.
+- Verification: local ShellCheck exit 0, Bats 211/211; hosted run `44398310259`
+  succeeded on both macOS and Ubuntu (`gh api .../runs/... --jq '.conclusion'`
+  returned `success`). Hosted CI is now verified locally **and** remotely.

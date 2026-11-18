@@ -542,7 +542,10 @@ with accurate context. Do this even for small fixes.
   caused by a missing `--cppstd` example was fixed in `docs/index.html`.
 - Resolved: BUG-005 — generated workspace members now inherit the root
   `cppstd` via `workspace_application_cppstd()`; full suite 202/202 green.
-  Hosted CI and Linux remain unverified.
+  Hosted CI verified: commit fd3da0d, run 44398310259, success on macOS and
+  Ubuntu. BUG-010 (no `timeout` on macOS runner) and BUG-011 (`killpg` EPERM
+  in watch.py) were fixed after reading the failed run logs. Linux behavior
+  beyond hosted Ubuntu CI remains unverified.
 - 2026-11-18 BUG-009: `metadata --format json` `targets` is now a flat array
   of target objects (removed a redundant jq wrapper). Full suite 211/211 green.
 - 2026-11-18 BUG-008: `clean --all --dry-run` no longer requires --yes in

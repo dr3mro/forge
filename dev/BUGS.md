@@ -7,10 +7,10 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Commands discovered | build, run, watch, test (sanitizer paths) |
 | Scenarios executed | Full Bats suite (201 tests) + focused probes |
 | Passed | 201 (final clean run) |
-| Failed | 0 (final); 9 defects found and fixed during the campaign |
-| Confirmed bugs | 9 (1 high, 3 medium, 5 low) |
+| Failed | 0 (final); 11 defects found and fixed during the campaign |
+| Confirmed bugs | 11 (1 high, 5 medium, 5 low) |
 | Critical / High | 0 / 1 |
-| Platforms tested | macOS (local) |
+| Platforms tested | macOS (local + hosted), Ubuntu (hosted) |
 
 ## Workflow coverage
 
@@ -190,6 +190,40 @@ QA summary — iteration 1 (sanitizer build/run slice)
 **Fix:** remove the redundant array wrapper.  
 **Regression test:** `metadata --format json emits ANSI-free stable JSON` now asserts `.targets` is a flat array with two entries and checks the first target's kind and name.  
 **Verification:** full suite 211/211.
+
+## BUG-010 — Update check silently skipped on hosts without `timeout`
+
+**Severity:** Medium  
+**Category:** Portability / Hosted CI  
+**Status:** Fixed — verified in hosted CI  
+**Reproducibility:** Always on a host without a working `timeout` command
+
+**Summary:** `forge`'s periodic update check piped `timeout 6 git ls-remote` through `2>/dev/null`. On macOS CI the `timeout` command is absent, so the release notice never appeared and test 156 failed.
+
+**Evidence:** hosted run 44341745295, `foundations (macos-latest)`, `not ok 156 ... forge 9.9.9 is available`; reproduced locally with a `timeout` shim exiting 127.  
+**Root cause:** unconditional reliance on an external `timeout` utility, with stderr suppressed.  
+**Fix:** `_update_check_ls_remote()` verifies `timeout`/`gtimeout` actually work and otherwise runs Git with `GIT_TERMINAL_PROMPT=0` directly.  
+**Regression test:** existing `tests/unit/13_updatecheck.bats` now passes both with and without `timeout`.
+
+## BUG-011 — watch crashed on PermissionError from killpg in hosted macOS
+
+**Severity:** Medium  
+**Category:** Reliability / Hosted CI  
+**Status:** Fixed — verified in hosted CI  
+**Reproducibility:** Always on the macOS runner
+
+**Summary:** On a source change, `watch.py` called `os.killpg(child.pid, SIGTERM)`, got `PermissionError: [Errno 1] Operation not permitted`, and crashed before restarting the app. Test 191 failed after a 30-second wait.
+
+**Evidence:** hosted run 44341745295, `foundations (macos-latest)`, traceback in `lib/watch.py:42`.  
+**Root cause:** group-signal failure was unhandled and had no fallback.  
+**Fix:** `signal_child()` falls back to `child.send_signal(sig)` on `PermissionError`; `stop()` uses it for both SIGTERM and SIGKILL.  
+**Regression test:** `watch --sanitize rebuilds and restarts in the sanitizer tree` passed in hosted CI.
+
+### Hosted CI verification
+
+- Run `44398310259` (`fd3da0d`, main): **success** — `foundations (macos-latest)` and `foundations (ubuntu-latest)` both green, including ShellCheck, Doctor and all 211 Bats tests.
+- Run `44398275143` (`9e824c5`): also success.
+- Prior runs from `3e1a56c` and earlier: `forge-ci` failure on macOS with the two defects above; the `forge-pages` workflow succeeded throughout.
 
 ## Unverified risks
 
