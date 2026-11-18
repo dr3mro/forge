@@ -552,7 +552,14 @@ forge_enable_sanitizer() {
     tsan)  name="thread" ;;
   esac
   FORGE_SANITIZER="${name}"
-  FORGE_EXTRA_CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=${flags}" "-DCMAKE_EXE_LINKER_FLAGS=${flags}")
+  # C sources and shared libraries need instrumentation too; otherwise mixed
+  # C/C++ workspaces can hide bugs in C objects and uninstrumented dylibs.
+  FORGE_EXTRA_CMAKE_ARGS+=(
+    "-DCMAKE_C_FLAGS=${flags}"
+    "-DCMAKE_CXX_FLAGS=${flags}"
+    "-DCMAKE_EXE_LINKER_FLAGS=${flags}"
+    "-DCMAKE_SHARED_LINKER_FLAGS=${flags}"
+  )
 }
 
 # --- Fingerprint / configure ----------------------------------------------

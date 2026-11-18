@@ -61,13 +61,49 @@ teardown() {
   [ "$(readlink target/compile_commands.json)" = debug/compile_commands.json ]
 }
 
+@test "sanitizer helper instruments C and shared-library builds" {
+  load_forge_libs
+  FORGE_SANITIZER=""
+  FORGE_EXTRA_CMAKE_ARGS=()
+  forge_enable_sanitizer address
+  [ "$FORGE_SANITIZER" = "address" ]
+  local arg found_c=0 found_cxx=0 found_exe=0 found_shared=0
+  for arg in "${FORGE_EXTRA_CMAKE_ARGS[@]}"; do
+    [[ "$arg" == -DCMAKE_C_FLAGS=*-fsanitize=address* ]] && found_c=1
+    [[ "$arg" == -DCMAKE_CXX_FLAGS=*-fsanitize=address* ]] && found_cxx=1
+    [[ "$arg" == -DCMAKE_EXE_LINKER_FLAGS=*-fsanitize=address* ]] && found_exe=1
+    [[ "$arg" == -DCMAKE_SHARED_LINKER_FLAGS=*-fsanitize=address* ]] && found_shared=1
+  done
+  [ "$found_c" -eq 1 ]
+  [ "$found_cxx" -eq 1 ]
+  [ "$found_exe" -eq 1 ]
+  [ "$found_shared" -eq 1 ]
+}
+
+@test "sanitizer build instruments C sources in a mixed workspace" {
+  command -v cmake >/dev/null || skip "cmake not installed"
+  run_forge --no-color generate lib cutil --c >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color build --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+  local cc="target/sanitizers/address/debug/compile_commands.json"
+  [ -f "$cc" ]
+  run jq -e '[.[] | select(.file | endswith(".c")) | select(.command | contains("-fsanitize=address"))] | length > 0' "$cc"
+  [ "$status" -eq 0 ]
+}
+
 @test "build and run validate sanitizer names before doing work" {
   for command in build run watch; do
     run_forge --dry-run "$command" --sanitize=invalid
     [ "$status" -eq 2 ]
     [[ "$output" == *"unknown sanitizer 'invalid'"* ]]
   done
-  run_forge --dry-run build --sanitize
+  # Guard the missing-operand case so a regression fails instead of hanging.
+  if command -v timeout >/dev/null 2>&1; then
+    run timeout 10 "${FORGE_BASH}" "${FORGE_BIN}" --dry-run build --sanitize
+  else
+    run_forge --dry-run build --sanitize
+  fi
   [ "$status" -eq 2 ]
   [[ "$output" == *"--sanitize requires a value"* ]]
 }
@@ -107,6 +143,14 @@ teardown() {
 @test "a missing sanitized build reports a sanitizer-aware repair hint" {
   run_forge --no-color run --sanitize address --bin app
   [ "$status" -eq 5 ]
+  [[ "$output" == *"forge build --sanitize address"* ]]
+}
+
+@test "a missing sanitized executable names the sanitizer in the error" {
+  mkdir -p target/sanitizers/address/debug
+  run_forge --no-color run --sanitize address --bin app
+  [ "$status" -eq 5 ]
+  [[ "$output" == *"sanitizer=address"* ]]
   [[ "$output" == *"forge build --sanitize address"* ]]
 }
 

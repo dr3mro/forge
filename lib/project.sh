@@ -60,7 +60,7 @@ refuse_file() {
 
 # Write the initial manifest for a binary or library project.
 write_manifest() {
-  local dir="$1" name="$2" kind="$3" version="$4" description="$5" author_line="$6" extension="$7" linkage="$8" block metadata
+  local dir="$1" name="$2" kind="$3" version="$4" description="$5" author_line="$6" extension="$7" linkage="$8" cppstd="${9:-20}" block metadata
   if [[ "${kind}" == "lib" ]]; then
     block=$(cat <<EOF
 [[lib]]
@@ -100,7 +100,7 @@ schema = 1
 [package]
 name = "${name}"
 version = "${version}"
-${metadata}cppstd = "20"
+${metadata}cppstd = "${cppstd}"
 
 [build]
 generator = "Ninja"
@@ -141,7 +141,7 @@ validate_cpp_identifier() {
 # Create source files, editor settings, and generated build files.
 scaffold_project() {
   local dir="$1" name="$2" kind="$3" git_init="$4" version="${5:-0.1.0}" description="${6:-}"
-  local tpl="${FORGE_HOME}/templates/base" author_line="${7:-}" extension="${8:-cpp}" cpp_namespace="${9:-$2}" header=hpp rel linkage="${10:-static}" include_ci="${11:-1}"
+  local tpl="${FORGE_HOME}/templates/base" author_line="${7:-}" extension="${8:-cpp}" cpp_namespace="${9:-$2}" header=hpp rel linkage="${10:-static}" include_ci="${11:-1}" cppstd="${12:-20}"
   [[ "${extension}" != c ]] || header=h
 
   [[ ! "${author_line}" =~ [[:cntrl:]] ]] \
@@ -203,7 +203,7 @@ scaffold_project() {
   progress_finish
 
   progress "Writing Forge.toml"
-  write_manifest "${dir}" "${name}" "${kind}" "${version}" "${description}" "${author_line}" "${extension}" "${linkage}" \
+  write_manifest "${dir}" "${name}" "${kind}" "${version}" "${description}" "${author_line}" "${extension}" "${linkage}" "${cppstd}" \
     || die "${EXIT_OTHER}" "could not write Forge.toml"
 
   progress_finish

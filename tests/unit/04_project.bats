@@ -24,6 +24,25 @@ load ../test_helper
   cd "$old"; rm -rf "$dir"
 }
 
+@test "new and init write the selected C++ standard and reject invalid values" {
+  local dir="${BATS_TMPDIR}/forge-cppstd-$$" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new app17 --defaults --cppstd 17
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "17"$' app17/Forge.toml
+  run_forge --no-color new app23 --defaults --cppstd=23
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "23"$' app23/Forge.toml
+  run_forge --no-color new bad --defaults --cppstd 14
+  [ "$status" -eq 2 ]
+  [ ! -e bad ]
+  mkdir app_init && cd app_init
+  run_forge --no-color init --defaults --name initapp --cppstd 17
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "17"$' Forge.toml
+  cd "$old"; rm -rf "$dir"
+}
+
 @test "new scaffolds user, manifest-variable, and diagnostics modules under cmake" {
   local dir="${BATS_TMPDIR}/forge-cmake-modules-$$" old="$PWD"
   mkdir -p "$dir"; cd "$dir"

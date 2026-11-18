@@ -39,7 +39,7 @@ _run_project() {
         profile="${1#--}"
         shift
         ;;
-      --sanitize) sanitize="${2:-}"; shift 2 ;;
+      --sanitize) sanitize="${2:-}"; [[ -n "${sanitize}" ]] || die "${EXIT_USAGE}" "--sanitize requires a value"; shift 2 ;;
       --sanitize=*) sanitize="${1#*=}"; shift ;;
       --help | -h) cmd_help; return "${EXIT_OK}" ;;
       -*) die "${EXIT_USAGE}" "unknown flag for '${command}': $1" ;;
@@ -142,6 +142,9 @@ _run_project() {
     die "${EXIT_BUILD}" "project is not built for '${profile}' (run '${build_hint}')"
   fi
   (( known_target )) || die "${EXIT_USAGE}" "no such executable: ${bin}"
+  if [[ -z "${exe}" && -n "${FORGE_SANITIZER}" ]]; then
+    die "${EXIT_BUILD}" "executable '${bin}' is not built for '${profile}' (sanitizer=${FORGE_SANITIZER}; run 'forge build --sanitize ${FORGE_SANITIZER}')"
+  fi
   [[ -n "${exe}" ]] || die "${EXIT_BUILD}" "executable '${bin}' is not built for '${profile}'"
 
   if (( FORGE_DRY_RUN )); then

@@ -49,7 +49,7 @@ cmd_build() {
     case "$1" in
       --debug-target) debug_target="${2:-}"; [[ -n "${debug_target}" ]] || die "${EXIT_USAGE}" "--debug-target requires a name"; shift 2 ;;
       --release) release=1; shift ;;
-      --sanitize) sanitize="${2:-}"; shift 2 ;;
+      --sanitize) sanitize="${2:-}"; [[ -n "${sanitize}" ]] || die "${EXIT_USAGE}" "--sanitize requires a value"; shift 2 ;;
       --sanitize=*) sanitize="${1#*=}"; shift ;;
       --target)  target="${2:-}"; [[ -n "${target}" ]] || die "${EXIT_USAGE}" "--target requires a value"; shift 2 ;;
       --target=*) target="${1#*=}"; shift ;;

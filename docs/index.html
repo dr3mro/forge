@@ -424,6 +424,7 @@ forge docs</pre></article>
 <dl>
 <dt>--name NAME</dt><dd>Supply the project name and skip its prompt</dd>
 <dt>--version VERSION</dt><dd>Set one to four numeric version components</dd>
+<dt>--cppstd STD</dt><dd>Set the C++ standard in Forge.toml</dd>
 <dt>--description TEXT</dt><dd>Write the description to Forge.toml and README</dd>
 <dt>--author NAME</dt><dd>Set the author name</dd>
 <dt>--email ADDRESS</dt><dd>Set the author email</dd>
@@ -437,12 +438,14 @@ forge docs</pre></article>
 <dt>--dynamic</dt><dd>Alias for --shared</dd>
 </dl>
 <pre>forge new --name hello --git
-forge new hello --defaults --version 1.2.3</pre></div></details>
+forge new hello --defaults --version 1.2.3
+forge new hello --defaults --cppstd 23</pre></div></details>
 <details data-command="init"><summary><code>forge init [OPTIONS]</code><span>Prompt for project details in the current directory</span></summary>
 <div class="content">
 <dl>
 <dt>--name NAME</dt><dd>Supply the project name and skip its prompt</dd>
 <dt>--version VERSION</dt><dd>Set one to four numeric version components</dd>
+<dt>--cppstd STD</dt><dd>Set the C++ standard in Forge.toml</dd>
 <dt>--description TEXT</dt><dd>Write the description to Forge.toml and README</dd>
 <dt>--author NAME</dt><dd>Set the author name</dd>
 <dt>--email ADDRESS</dt><dd>Set the author email</dd>

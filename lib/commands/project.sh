@@ -33,7 +33,7 @@ project_read_field() {
 
 project_create() {
   local action="$1" kind=bin git_init=0 defaults=0 cpp_namespace="" linkage=""
-  local name version description author email allow_empty_input=0 supplied_input=0
+  local name version description author email cppstd=20 allow_empty_input=0 supplied_input=0
   shift
   while (( $# )); do
     case "$1" in
@@ -41,6 +41,14 @@ project_create() {
       --lib) kind=lib ;;
       --git) git_init=1 ;;
       --defaults) defaults=1 ;;
+      --cppstd)
+        (( $# >= 2 )) || die "${EXIT_USAGE}" "--cppstd requires a value"
+        [[ "$2" =~ ^(17|20|23)$ ]] || die "${EXIT_USAGE}" "--cppstd must be 17, 20 or 23"
+        cppstd="$2"; shift ;;
+      --cppstd=*)
+        cppstd="${1#*=}"
+        [[ "${cppstd}" =~ ^(17|20|23)$ ]] || die "${EXIT_USAGE}" "--cppstd must be 17, 20 or 23"
+        shift ;;
       --help|-h) cmd_help "${action}"; return ;;
       --static|--shared|--dynamic)
         local requested_linkage="${1#--}"
@@ -117,7 +125,7 @@ project_create() {
     status "dry-run: would ${action} ${kind} project '${name}' at ${dir}"
     return
   fi
-  scaffold_project "${dir}" "${name}" "${kind}" "${git_init}" "${version}" "${description}" "${author_line}" cpp "${cpp_namespace}" "${linkage}"
+  scaffold_project "${dir}" "${name}" "${kind}" "${git_init}" "${version}" "${description}" "${author_line}" cpp "${cpp_namespace}" "${linkage}" 1 "${cppstd}"
   out "Scaffolded ${kind} project '${name}' in ${dir}"
   if [[ "${action}" == new ]]; then
     status "Next: cd ${name} && forge build"

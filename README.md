@@ -133,7 +133,8 @@ dependencies remain.
 
 Both `new` and `init` prompt for omitted project metadata. Use `--defaults`
 for a noninteractive run and override any defaults with `--name`,
-`--version`, `--description`, `--author`, and `--email`.
+`--version`, `--description`, `--author`, and `--email`. Pass `--cppstd
+17|20|23` to choose the C++ standard written to `Forge.toml` (default 20).
 
 ```sh
 forge new hello --git --defaults --version 1.2.3 --description "Example app"
@@ -314,6 +315,8 @@ forge test --sanitize address           # same isolated tree, via CTest
 `address`/`asan`, `undefined`/`ubsan`, `leak`/`lsan`, and `thread`/`tsan`.
 `run --sanitize` selects the instrumented executable; add `--build` to compile
 it in the same command. `watch --sanitize` keeps every restart instrumented.
+C and C++ sources and shared libraries are instrumented, including in mixed
+workspaces.
 
 ## Watch mode
 

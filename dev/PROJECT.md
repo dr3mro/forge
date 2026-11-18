@@ -513,7 +513,7 @@ with accurate context. Do this even for small fixes.
   commits are paused. Current trackers: `dev/PROGRESS.md`, `dev/BUGS.md`,
   `dev/TODO.md`.
 
-### 2026-11-18 — Sanitized build and run (IMPLEMENTED-UNVERIFIED)
+### 2026-11-18 — Sanitized build and run (VERIFIED locally)
 
 - Decision/change: added `forge_enable_sanitizer()` to `lib/cmake.sh`. It
   validates a fixed allowlist (`address|asan`, `undefined|ubsan`, `leak|lsan`,
@@ -528,11 +528,18 @@ with accurate context. Do this even for small fixes.
   (`forge build --sanitize address`, `forge run --sanitize address --bin app`)
   before the two UX fixes. Two new regression tests failed before their fixes
   (`dev/BUGS.md` BUG-001/002). **No post-fix test has completed** — the next
-  window is 08:55 local under the 60-minute cadence rule.
+  window is superseded by autopilot mode. Final verification: `shellcheck_exit=0`, `1..201`, `bats_exit=0` — 201/201 green locally.
 - Constraints: exit codes 0/1/2/3/4/5/6 unchanged; no `eval`; the allowlist
   prevents attacker-controlled text in paths or `-DCMAKE_*_FLAGS`; JSON output
-  untouched; user-owned files untouched. C-source instrumentation remains a
-  backlog idea in `dev/TODO.md`.
-- Follow-up: at the next window run one batched ShellCheck + full Bats run,
-  log output, record any failures in the `TODO.md` test-failure backlog, then
-  promote this entry to VERIFIED with exact results.
+  untouched; user-owned files untouched. C and shared-library instrumentation
+  was added in a follow-up batch; see the note below.
+- Follow-up batches: `forge_enable_sanitizer` also sets `CMAKE_C_FLAGS` and
+  `CMAKE_SHARED_LINKER_FLAGS` for mixed C/C++ workspaces; `new`/`init` gained
+  `--cppstd 17|20|23` (default 20); BUG-003 fixed the missing-executable hint.
+  BUG-004 (infinite loop when `--sanitize` had no operand in `build`/`run`/`watch`)
+  was found when the suite hung, fixed by validating the operand before `shift 2`,
+  and guarded with a `timeout 10` Bats assertion. A website catalog failure
+  caused by a missing `--cppstd` example was fixed in `docs/index.html`.
+- Open uncertainty: generated workspace members still default to `cppstd=20`
+  when the root declares 17; unconfirmed candidate in `dev/TODO.md`.
+  Hosted CI and Linux remain unverified.

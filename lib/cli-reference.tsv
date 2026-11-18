@@ -66,6 +66,7 @@ option	global	--help	Show context-specific help
 option	global	--version	Show the installed CLI version before a command
 option	new	--name NAME	Supply the project name and skip its prompt
 option	new	--version VERSION	Set one to four numeric version components
+option	new	--cppstd STD	Set the C++ standard in Forge.toml	17 20 23
 option	new	--description TEXT	Write the description to Forge.toml and README
 option	new	--author NAME	Set the author name
 option	new	--email ADDRESS	Set the author email
@@ -76,6 +77,7 @@ option	new	--git	Initialize Git and register the release-tag hook
 option	new	--defaults	Skip prompts for omitted fields
 option	init	--name NAME	Supply the project name and skip its prompt
 option	init	--version VERSION	Set one to four numeric version components
+option	init	--cppstd STD	Set the C++ standard in Forge.toml	17 20 23
 option	init	--description TEXT	Write the description to Forge.toml and README
 option	init	--author NAME	Set the author name
 option	init	--email ADDRESS	Set the author email
@@ -138,6 +140,7 @@ option	generate lib	--namespace NAME	Set the C++ library namespace (defaults to 
 option	generate class	--namespace NAME	Set the C++ namespace (defaults to the root project name)
 option	generate bin	--cpp	Generate C++ sources
 example	new	forge new hello --defaults --version 1.2.3
+example	new	forge new hello --defaults --cppstd 23
 example	build	forge build --release --target hello
 example	build	forge build --sanitize address
 example	run	forge run --build --sanitize address --bin hello

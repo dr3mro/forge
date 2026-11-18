@@ -38,7 +38,8 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 `--option K=V` (conan).
 
 `new` and `init` accept `--name`, `--version`, `--description`, `--author`,
-and `--email`. C++ library scaffolds also accept `--namespace NAME`. Pass `--defaults` to skip prompts for omitted fields.
+`--email`, and `--cppstd 17|20|23` (default 20). C++ library scaffolds also
+accept `--namespace NAME`. Pass `--defaults` to skip prompts for omitted fields.
 
 Use `forge generate lib math --namespace acme::numeric` to put the generated
 `math` class in a custom namespace. It defaults to the root
@@ -53,8 +54,9 @@ Actions for Debug and Release on Windows, Linux, and macOS.
 tree, so they never disturb a normal build. `forge build --sanitize address`
 compiles an app under ASan and `forge run --sanitize address` launches that
 instrumented executable; adding `--build` builds it first. `watch` forwards the
-sanitizer to each rebuild. The root `compile_commands.json` link is not changed
-by an instrumented build.
+sanitizer to each rebuild. C and C++ sources and shared-library links are all
+instrumented, so mixed workspaces are covered. The root `compile_commands.json`
+link is not changed by an instrumented build.
 
 ## Exit codes
 
