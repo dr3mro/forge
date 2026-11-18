@@ -513,6 +513,48 @@ cmake_render_all() {
   fi
 }
 
+# --- Sanitizers -------------------------------------------------------------
+# Translate a sanitizer name into compiler flags.
+# Returns 1 for an unknown name so callers can emit a usage error.
+_sanitizer_flags() {
+  case "$1" in
+    address | asan)   printf '%s' "-fsanitize=address -fno-omit-frame-pointer" ;;
+    undefined | ubsan) printf '%s' "-fsanitize=undefined -fno-omit-frame-pointer" ;;
+    leak | lsan)      printf '%s' "-fsanitize=leak -fno-omit-frame-pointer" ;;
+    thread | tsan)    printf '%s' "-fsanitize=thread -fno-omit-frame-pointer" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Validate and apply a sanitizer for the current Forge invocation.
+#
+# Arguments:
+#   $1 - Sanitizer name (address/asan, undefined/ubsan, leak/lsan, thread/tsan).
+#
+# Returns:
+#   0 - FORGE_SANITIZER holds the canonical name and instrumentation flags
+#       were appended to FORGE_EXTRA_CMAKE_ARGS.
+#   2 - Unknown or empty name (via die, exit code EXIT_USAGE).
+#
+# Side effects: sets FORGE_SANITIZER, appends C++ compile and link flags.
+# All sanitizer builds land in target/sanitizers/NAME/<profile> through
+# resolve_build_dir, so instrumented and normal builds never share a tree.
+forge_enable_sanitizer() {
+  local name="${1:-}" flags
+  [[ -n "${name}" && "${name}" != -* ]] \
+    || die "${EXIT_USAGE}" "--sanitize requires a value"
+  flags=$(_sanitizer_flags "${name}") \
+    || die "${EXIT_USAGE}" "unknown sanitizer '${name}' (address, undefined, leak, thread)"
+  case "${name}" in
+    asan)  name="address" ;;
+    ubsan) name="undefined" ;;
+    lsan)  name="leak" ;;
+    tsan)  name="thread" ;;
+  esac
+  FORGE_SANITIZER="${name}"
+  FORGE_EXTRA_CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=${flags}" "-DCMAKE_EXE_LINKER_FLAGS=${flags}")
+}
+
 # --- Fingerprint / configure ----------------------------------------------
 compute_fingerprint() {
   local profile="$1" toolchain="${2:-}" vcpkg_manifest="$3" parts="" conan_script=""

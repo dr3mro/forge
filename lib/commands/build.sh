@@ -44,11 +44,13 @@ forge_perform_build() {
 
 # Validate project state and build the selected profile or target.
 cmd_build() {
-  local release=0 target="" toolchain="" debug_target=""
+  local release=0 target="" toolchain="" debug_target="" sanitize=""
   while (( $# > 0 )); do
     case "$1" in
       --debug-target) debug_target="${2:-}"; [[ -n "${debug_target}" ]] || die "${EXIT_USAGE}" "--debug-target requires a name"; shift 2 ;;
       --release) release=1; shift ;;
+      --sanitize) sanitize="${2:-}"; shift 2 ;;
+      --sanitize=*) sanitize="${1#*=}"; shift ;;
       --target)  target="${2:-}"; [[ -n "${target}" ]] || die "${EXIT_USAGE}" "--target requires a value"; shift 2 ;;
       --target=*) target="${1#*=}"; shift ;;
       --toolchain) toolchain="${2:-}"; [[ -n "${toolchain}" ]] || die "${EXIT_USAGE}" "--toolchain requires a value"; shift 2 ;;
@@ -64,6 +66,10 @@ cmd_build() {
     [[ -z "${target}" && "${release}" == 0 ]] \
       || die "${EXIT_USAGE}" "--debug-target cannot be combined with --target or --release"
     target="${debug_target}"
+  fi
+
+  if [[ -n "${sanitize}" ]]; then
+    forge_enable_sanitizer "${sanitize}"
   fi
 
   manifest_load

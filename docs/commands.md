@@ -11,10 +11,10 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `doctor` | Actionable checks for Bash, CMake, Conan 2, Git, jq, parser, compiler, Ninja, ShellCheck |
 | `new [NAME] [--bin\|--lib] [--git]` | Prompt for metadata and scaffold a project directory |
 | `init [--bin\|--lib] [--git]` | Prompt for project and author details, then scaffold in the current directory |
-| `build [--release] [--target T] [--toolchain F] [--link-compile-commands]` | Validate drift, install Conan graph if needed, configure via preset, compile |
+| `build [--release] [--target T] [--toolchain F] [--sanitize NAME] [--link-compile-commands]` | Validate drift, install Conan graph if needed, configure via preset, compile |
 | `build --debug-target T` | Build an executable with the debug preset and link it to `target/debug-T-launch` for LLDB |
-| `run [--build] [--debug\|--release] [--bin N] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
-| `watch [--bin NAME] [--debug|--release] [-- ARGS]` | Rebuild and run when workspace inputs change |
+| `run [--build] [--debug\|--release] [--bin N] [--sanitize NAME] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
+| `watch [--bin NAME] [--debug|--release] [--sanitize NAME] [-- ARGS]` | Rebuild and run when workspace inputs change |
 | `test [FILTER] [--repeat N] [--sanitize NAME]` | CTest; `--sanitize` uses an isolated build dir |
 | `clean [--profile N] [--all]` | Delete only validated Forge-owned dirs under `target/`; `--all` confirms |
 | `add NAME[/VERSION] --conan [--target T]` | Discover Conan CMake metadata, link a local target, and sync |
@@ -46,6 +46,15 @@ application project's name. C++ libraries from `new --lib` and `init --lib` use 
 template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
 to choose library linkage. New root projects automatically receive GitHub
 Actions for Debug and Release on Windows, Linux, and macOS.
+
+`--sanitize NAME` is accepted by `build`, `run`, `watch`, and `test`. Names are
+`address` (`asan`), `undefined` (`ubsan`), `leak` (`lsan`), or `thread`
+(`tsan`). Instrumented builds use an isolated `target/sanitizers/NAME/<profile>`
+tree, so they never disturb a normal build. `forge build --sanitize address`
+compiles an app under ASan and `forge run --sanitize address` launches that
+instrumented executable; adding `--build` builds it first. `watch` forwards the
+sanitizer to each rebuild. The root `compile_commands.json` link is not changed
+by an instrumented build.
 
 ## Exit codes
 

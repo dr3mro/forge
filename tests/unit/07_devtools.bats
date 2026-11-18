@@ -61,6 +61,61 @@ teardown() {
   [ "$(readlink target/compile_commands.json)" = debug/compile_commands.json ]
 }
 
+@test "build and run validate sanitizer names before doing work" {
+  for command in build run watch; do
+    run_forge --dry-run "$command" --sanitize=invalid
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"unknown sanitizer 'invalid'"* ]]
+  done
+  run_forge --dry-run build --sanitize
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--sanitize requires a value"* ]]
+}
+
+@test "build --sanitize uses the isolated sanitizer tree and leaves normal build alone" {
+  command -v cmake >/dev/null || skip "cmake not installed"
+  run_forge --no-color build --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+  [ -f target/sanitizers/address/debug/CMakeCache.txt ]
+  [ ! -e target/debug ]
+  [ ! -e target/compile_commands.json ]
+  run_forge --no-color build >/dev/null
+  [ "$status" -eq 0 ]
+  [ -f target/debug/CMakeCache.txt ]
+  [ -f target/sanitizers/address/debug/CMakeCache.txt ]
+  [ "$(readlink target/compile_commands.json)" = debug/compile_commands.json ]
+}
+
+@test "run --sanitize finds the instrumented executable and forwards arguments" {
+  command -v cmake >/dev/null || skip "cmake not installed"
+  run_forge --no-color build --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color run --sanitize address --bin app -- --flag
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Hello from app!"* ]]
+  [ ! -e target/debug/app ]
+}
+
+@test "run --build --sanitize normalizes aliases and builds the instrumented target" {
+  command -v cmake >/dev/null || skip "cmake not installed"
+  run_forge --no-color run --build --sanitize asan --bin app
+  [ "$status" -eq 0 ]
+  [ -f target/sanitizers/address/debug/CMakeCache.txt ]
+  [ ! -e target/debug ]
+}
+
+@test "a missing sanitized build reports a sanitizer-aware repair hint" {
+  run_forge --no-color run --sanitize address --bin app
+  [ "$status" -eq 5 ]
+  [[ "$output" == *"forge build --sanitize address"* ]]
+}
+
+@test "watch --sanitize dry run names the sanitizer in its plan" {
+  run_forge --no-color --dry-run watch --sanitize address --bin app
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"sanitizer=address"* ]]
+}
+
 @test "development commands report help and reject malformed options" {
   local command
   for command in build run test fmt metadata update uninstall; do

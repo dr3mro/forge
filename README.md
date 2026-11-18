@@ -297,6 +297,24 @@ builds. Edit it for distribution signing; set `FORGE_CODESIGN_IDENTITY` to a
 keychain identity or to `""` in `Forge.toml` or `cmake/user.cmake` to use a
 different signature or disable signing. Test executables are not signed.
 
+## Sanitizer builds
+
+Build and run an application under a sanitizer to debug memory or threading
+problems. Forge keeps instrumented builds in their own tree, so a normal build
+is untouched:
+
+```sh
+forge build --sanitize address          # ASan, in target/sanitizers/address/
+forge run --sanitize address --bin hello
+forge run --build --sanitize undefined --bin hello
+forge test --sanitize address           # same isolated tree, via CTest
+```
+
+`--sanitize` is accepted by `build`, `run`, `watch`, and `test`. Names are
+`address`/`asan`, `undefined`/`ubsan`, `leak`/`lsan`, and `thread`/`tsan`.
+`run --sanitize` selects the instrumented executable; add `--build` to compile
+it in the same command. `watch --sanitize` keeps every restart instrumented.
+
 ## Watch mode
 
 `forge watch` builds and runs the selected application. It stops the old

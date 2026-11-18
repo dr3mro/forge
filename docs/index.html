@@ -380,8 +380,10 @@ forge test</pre></div>
 <div class="columns">
 <article class="card"><h3>Scaffold or adopt a project</h3><p><code>new</code> creates a directory. <code>init</code> works in the current directory. Each supplied metadata flag skips its prompt. Use <code>--defaults</code> for scripts. Scaffolds provide CMake presets, tests, and Zed and VS Code tasks.</p><pre>forge new --name hello --git
 forge init --lib --name widget --defaults</pre></article>
-<article class="card"><h3>Build, run, and test</h3><p>Build debug or release presets. Forward application arguments after <code>--</code>. Run CTest with a filter or sanitizer. Use the debug target option to create a stable LLDB launch path.</p><pre>forge build --release
+<article class="card"><h3>Build, run, and test</h3><p>Build debug or release presets. Forward application arguments after <code>--</code>. Build and run under a sanitizer in an isolated tree, or run CTest with a filter. Use the debug target option to create a stable LLDB launch path.</p><pre>forge build --release
 forge run --build --release --bin hello -- --version
+forge build --sanitize address
+forge run --sanitize address --bin hello
 forge test --sanitize address
 forge build --debug-target hello</pre></article>
 <article class="card"><h3>Declare dependencies</h3><p>Accepting sync after a Conan add refreshes the workspace lock. Use vcpkg for ports and features, full Git SHAs for FetchContent, or relative paths for local CMake libraries. Edit Conan <code>ref</code> and <code>conan_options</code> in TOML. vcpkg supports <code>features</code>, <code>default_features</code>, and exact versions with a workspace baseline.</p><pre>forge add fmt/12.1.0 --conan
@@ -458,13 +460,15 @@ forge new hello --defaults --version 1.2.3</pre></div></details>
 <div class="content">
 <dl>
 <dt>--release</dt><dd>Build the release preset</dd>
+<dt>--sanitize NAME</dt><dd>Build with a sanitizer in an isolated directory</dd>
 <dt>--target NAME</dt><dd>Build one CMake target</dd>
 <dt>--toolchain FILE</dt><dd>Use a CMake toolchain file</dd>
 <dt>--debug-target NAME</dt><dd>Build one executable and create its LLDB launch path</dd>
 <dt>--link-compile-commands</dt><dd>Allow replacing a user-owned root compilation database</dd>
 </dl>
 <pre>forge build --debug-target hello
-forge build --release --target hello</pre></div></details>
+forge build --release --target hello
+forge build --sanitize address</pre></div></details>
 <details data-command="run"><summary><code>forge run [OPTIONS] [-- ARGS]</code><span>Run an executable, optionally building it first</span></summary>
 <div class="content">
 <dl>
@@ -472,9 +476,11 @@ forge build --release --target hello</pre></div></details>
 <dt>--release</dt><dd>Select the release build</dd>
 <dt>--debug</dt><dd>Select the debug build</dd>
 <dt>--bin NAME</dt><dd>Select a declared executable</dd>
+<dt>--sanitize NAME</dt><dd>Run a sanitizer-instrumented build</dd>
 <dt>--</dt><dd>Forward remaining arguments to the executable</dd>
 </dl>
-<pre>forge run --build --release --bin hello -- --version</pre></div></details>
+<pre>forge run --build --release --bin hello -- --version
+forge run --build --sanitize address --bin hello</pre></div></details>
 <details data-command="watch"><summary><code>forge watch [OPTIONS] [-- ARGS]</code><span>Build and run again when workspace inputs change</span></summary>
 <div class="content">
 <p>Forge restarts the application after changes to source files, headers, or
@@ -483,9 +489,11 @@ build configuration. Press Ctrl-C to stop.</p>
 <dt>--release</dt><dd>Select the release build</dd>
 <dt>--debug</dt><dd>Select the debug build</dd>
 <dt>--bin NAME</dt><dd>Select a declared executable</dd>
+<dt>--sanitize NAME</dt><dd>Watch a sanitizer-instrumented build</dd>
 <dt>--</dt><dd>Forward remaining arguments to the executable</dd>
 </dl>
-<pre>forge watch --bin hello -- --version</pre></div></details>
+<pre>forge watch --bin hello -- --version
+forge watch --sanitize address --bin hello</pre></div></details>
 <details data-command="test"><summary><code>forge test [FILTER] [OPTIONS]</code><span>Run CTest with a filter, repeat count, or sanitizer</span></summary>
 <div class="content">
 <dl>

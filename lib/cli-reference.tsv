@@ -85,6 +85,7 @@ option	init	--lib	Scaffold a library
 option	init	--git	Initialize Git and register the release-tag hook
 option	init	--defaults	Skip prompts for omitted fields
 option	build	--release	Build the release preset
+option	build	--sanitize NAME	Build with a sanitizer in an isolated directory	address undefined leak thread asan ubsan lsan tsan
 option	build	--target NAME	Build one CMake target
 option	build	--toolchain FILE	Use a CMake toolchain file
 option	build	--debug-target NAME	Build one executable and create its LLDB launch path
@@ -93,10 +94,12 @@ option	run	--build	Build the selected application before running it
 option	run	--release	Select the release build
 option	run	--debug	Select the debug build
 option	run	--bin NAME	Select a declared executable
+option	run	--sanitize NAME	Run a sanitizer-instrumented build	address undefined leak thread asan ubsan lsan tsan
 option	run	--	Forward remaining arguments to the executable
 option	watch	--release	Select the release build
 option	watch	--debug	Select the debug build
 option	watch	--bin NAME	Select a declared executable
+option	watch	--sanitize NAME	Watch a sanitizer-instrumented build	address undefined leak thread asan ubsan lsan tsan
 option	watch	--	Forward remaining arguments to the executable
 option	test	--repeat N	Repeat tests until failure, up to N times
 option	test	--allow-no-tests	Allow an empty CTest selection
@@ -136,6 +139,8 @@ option	generate class	--namespace NAME	Set the C++ namespace (defaults to the ro
 option	generate bin	--cpp	Generate C++ sources
 example	new	forge new hello --defaults --version 1.2.3
 example	build	forge build --release --target hello
+example	build	forge build --sanitize address
+example	run	forge run --build --sanitize address --bin hello
 example	test	forge test --sanitize address
 example	add	forge add fmt_git --github
 example	add	forge add fmt --vcpkg

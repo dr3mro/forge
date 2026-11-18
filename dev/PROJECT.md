@@ -493,3 +493,46 @@ with accurate context. Do this even for small fixes.
    tests strong and fix the code when they expose a defect.
 5. Keep docs in `docs/` aligned with `--help`.
 6. Do not recreate `progress.md` or the original plan unless the user asks.
+
+## 9. Session handoffs
+
+### 2026-11-18 — OpenCode team configuration (VERIFIED)
+
+- Merged the `forge-opencode-setup` ZIP into the repository root: `AGENTS.md`,
+  `opencode.json` (`default_agent: forge-orchestrator`) and `.opencode/` with
+  8 file-based agents and 11 skills. The ZIP's `reference/` copies were **not**
+  copied; the existing `dev/PROJECT.md`, `dev/TODO.md` and `dev/PROGRESS.md`
+  were preserved.
+- The ZIP agents used deprecated V1 `permission:` frontmatter. Copies were
+  converted to native V2 `permissions` arrays with the same effects
+  (orchestrator edit allow, specialists edit deny, shell ask, skill allow).
+  OpenCode v2.3.0 discovery was verified with `opencode debug config` (global +
+  repo config, both `.opencode` directories) and `opencode debug agents` (all
+  eight `forge-*` agents listed). Hot reload registered all 11 skills.
+- Unattended mode and a 60-minute test cadence were requested by the user;
+  commits are paused. Current trackers: `dev/PROGRESS.md`, `dev/BUGS.md`,
+  `dev/TODO.md`.
+
+### 2026-11-18 — Sanitized build and run (IMPLEMENTED-UNVERIFIED)
+
+- Decision/change: added `forge_enable_sanitizer()` to `lib/cmake.sh`. It
+  validates a fixed allowlist (`address|asan`, `undefined|ubsan`, `leak|lsan`,
+  `thread|tsan`), sets `FORGE_SANITIZER` to the canonical name and appends
+  C++ compile/link flags. `build`, `run` and `watch` now accept `--sanitize
+  NAME`; `test --sanitize` was refactored to use the same helper with unchanged
+  behavior. Instrumented builds stay in `target/sanitizers/NAME/<profile>` via
+  the existing `resolve_build_dir`; the root compilation-database link is not
+  rewritten by instrumented builds.
+- Evidence: baseline ShellCheck clean and 191/191 Bats green before changes.
+  A disposable project was built with ASan and the instrumented app ran
+  (`forge build --sanitize address`, `forge run --sanitize address --bin app`)
+  before the two UX fixes. Two new regression tests failed before their fixes
+  (`dev/BUGS.md` BUG-001/002). **No post-fix test has completed** — the next
+  window is 08:55 local under the 60-minute cadence rule.
+- Constraints: exit codes 0/1/2/3/4/5/6 unchanged; no `eval`; the allowlist
+  prevents attacker-controlled text in paths or `-DCMAKE_*_FLAGS`; JSON output
+  untouched; user-owned files untouched. C-source instrumentation remains a
+  backlog idea in `dev/TODO.md`.
+- Follow-up: at the next window run one batched ShellCheck + full Bats run,
+  log output, record any failures in the `TODO.md` test-failure backlog, then
+  promote this entry to VERIFIED with exact results.

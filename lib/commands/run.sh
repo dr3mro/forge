@@ -9,7 +9,7 @@ _run_project() {
   local watch="$1" command=run
   if (( watch )); then command=watch; fi
   shift
-  local bin="" profile="" forward_seen=0 build_first=0
+  local bin="" profile="" sanitize="" forward_seen=0 build_first=0
   local -a forward=()
   while (( $# > 0 )); do
     if (( forward_seen )); then
@@ -39,6 +39,8 @@ _run_project() {
         profile="${1#--}"
         shift
         ;;
+      --sanitize) sanitize="${2:-}"; shift 2 ;;
+      --sanitize=*) sanitize="${1#*=}"; shift ;;
       --help | -h) cmd_help; return "${EXIT_OK}" ;;
       -*) die "${EXIT_USAGE}" "unknown flag for '${command}': $1" ;;
       *) die "${EXIT_USAGE}" "use '--' to forward arguments to the program" ;;
@@ -47,6 +49,9 @@ _run_project() {
 
   [[ -z "${bin}" || "${bin}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] \
     || die "${EXIT_USAGE}" "invalid executable name: ${bin}"
+  if [[ -n "${sanitize}" ]]; then
+    forge_enable_sanitizer "${sanitize}"
+  fi
   manifest_load
   local requested_profile="${profile}"
   [[ -n "${profile}" ]] || profile=$(mq '.build.default_profile // "debug"')
@@ -70,7 +75,9 @@ _run_project() {
   if (( watch )); then
     require_tool python3
     if (( FORGE_DRY_RUN )); then
-      status "dry-run: would watch ${workspace} and rebuild and run ${bin} (${profile})"
+      local plan="dry-run: would watch ${workspace} and rebuild and run ${bin} (${profile})"
+      [[ -z "${FORGE_SANITIZER}" ]] || plan+=" (sanitizer=${FORGE_SANITIZER})"
+      status "${plan}"
       return "${EXIT_OK}"
     fi
     local -a args=("${BASH}" "${FORGE_HOME}/bin/forge" --manifest-path "${FORGE_MANIFEST_PATH}")
@@ -81,6 +88,7 @@ _run_project() {
     if (( FORGE_FORCE_COLOR )); then args+=(--force-color); fi
     args+=(run --build --bin "${bin}")
     if [[ -n "${requested_profile}" ]]; then args+=("--${requested_profile}"); fi
+    if [[ -n "${FORGE_SANITIZER}" ]]; then args+=(--sanitize "${FORGE_SANITIZER}"); fi
     args+=(-- "${forward[@]}")
     status "Watching ${workspace}. Press Ctrl-C to stop."
     exec python3 "${FORGE_LIB}/watch.py" "${workspace}" "${args[@]}"
@@ -127,6 +135,10 @@ _run_project() {
   if (( ! found_build )); then
     local build_hint="forge build --debug-target ${bin}"
     [[ "${profile}" != release ]] || build_hint="forge build --release"
+    if [[ -n "${FORGE_SANITIZER}" ]]; then
+      build_hint="forge build --sanitize ${FORGE_SANITIZER} --debug-target ${bin}"
+      [[ "${profile}" != release ]] || build_hint="forge build --sanitize ${FORGE_SANITIZER} --release"
+    fi
     die "${EXIT_BUILD}" "project is not built for '${profile}' (run '${build_hint}')"
   fi
   (( known_target )) || die "${EXIT_USAGE}" "no such executable: ${bin}"

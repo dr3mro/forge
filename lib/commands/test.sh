@@ -2,17 +2,6 @@
 # shellcheck disable=SC2034  # global flags consumed by cmake.sh
 # Forge command: test (including isolated sanitizer profiles).
 
-# Translate a sanitizer name into compiler flags.
-_sanitizer_flags() {
-  case "$1" in
-    address | asan)   printf '%s' "-fsanitize=address -fno-omit-frame-pointer" ;;
-    undefined | ubsan) printf '%s' "-fsanitize=undefined -fno-omit-frame-pointer" ;;
-    leak | lsan)      printf '%s' "-fsanitize=leak -fno-omit-frame-pointer" ;;
-    thread | tsan)    printf '%s' "-fsanitize=thread -fno-omit-frame-pointer" ;;
-    *) return 1 ;;
-  esac
-}
-
 # Build and run the selected CTest tests.
 cmd_test() {
   local filter="" repeat=1 allow_no_tests=0 release=0 sanitize="" positional=0
@@ -35,24 +24,16 @@ cmd_test() {
   (( repeat >= 1 )) || die "${EXIT_USAGE}" "--repeat must be at least 1"
 
   manifest_load
-  local profile gen build_dir flags toolchain=""
+  local profile gen build_dir toolchain=""
   if (( release )); then profile="release"; else profile=$(mq '.build.default_profile // "debug"'); fi
 
   if [[ -n "${sanitize}" ]]; then
-    flags=$(_sanitizer_flags "${sanitize}") \
-      || die "${EXIT_USAGE}" "unknown sanitizer '${sanitize}' (address, undefined, leak, thread)"
-    case "${sanitize}" in
-      asan) sanitize="address" ;;
-      ubsan) sanitize="undefined" ;;
-      lsan) sanitize="leak" ;;
-      tsan) sanitize="thread" ;;
-    esac
-    FORGE_SANITIZER="${sanitize}"
+    forge_enable_sanitizer "${sanitize}"
+    sanitize="${FORGE_SANITIZER}"
     gen=$(normalize_generator "$(mq '.build.generator // "Ninja"')")
     build_dir=$(resolve_build_dir "${profile}") || die "${EXIT_USAGE}" "invalid build profile: ${profile}"
     cmake_check_build_path "${build_dir}"
     build_lock_acquire "${build_dir}"
-    FORGE_EXTRA_CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=${flags}" "-DCMAKE_EXE_LINKER_FLAGS=${flags}")
     if conan_graph_has_deps; then
       conan_prepare_requirements "${FORGE_ROOT}"
       FORGE_CONAN_REQUIREMENTS_MODE="graph"
