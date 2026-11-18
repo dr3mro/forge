@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "template_id": "base",
+  "template_version": "1.0.0",
+  "manifest": "bf95cd12799028bd4346f5df38c1291872c35ce15af85ed7fc69fc7aecd64ed5",
+  "files": {
+    "CMakeLists.txt": "4268612f20a9a5d615f251b9bb3abce26ff6fe701481d0768e4ea600781d6bff",
+    "CMakePresets.json": "368040e6696a4c6982340c5ba10b22a777eb179d0ee1e3bb81ce5eaf161843c9",
+    "conanfile.txt": "3b505b5d714c39cdb14c8f759829fa2cf56bae7bd170bd4714733c7947e95889",
+    "cmake/Dependencies.cmake": "3bbbfb1e41054b5e02ea055212836252caa59822cd8d9bf00cadb389eb90de63",
+    "cmake/Targets.cmake": "4f329c07ad384d67065775ddfa9d1d7b86bd7ca99f6f4eda6c10985d7bc82a86",
+    "cmake/Testing.cmake": "f9b2a9055b64441530faa94fa69796442b5ca6b443b6e59410a685d2b8b7509b"
+  }
+}

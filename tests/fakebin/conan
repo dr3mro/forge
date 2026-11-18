@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Fake Conan 1.x for deterministic unit tests (no real Conan invocation).
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'Conan version 1.59.0\n'
+  exit 0
+fi
+printf 'fake-conan: unexpected invocation: %s\n' "$*" >&2
+exit 99

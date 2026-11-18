@@ -1,0 +1,14 @@
+# Forge tool requirements — single machine-checked source of truth.
+# Read by `forge doctor`. Format: KEY=VALUE (no spaces, '#' starts a comment).
+BASH_MIN=4.0
+CMAKE_MIN=3.25
+CONAN_MAJOR=2
+GIT_MIN=2.0
+JQ_MIN=1.6
+PYTHON_MIN=3.11
+SHELLCHECK_MIN=0.8
+NINJA_MIN=1.10
+BATS_MIN=1.5
+
+# Parser adapter: Python stdlib tomllib (TOML 1.0) -> JSON, queried with jq.
+TOML_ADAPTER=python3-tomllib

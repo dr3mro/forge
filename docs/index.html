@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The Forge C++ CLI guide. Scaffold, build, test, and manage CMake projects from Forge.toml.">
+<title>Forge — C++ project orchestration</title>
+<style>
+:root {
+  color-scheme:dark;
+  --bg:#101518;
+  --panel:#171e22;
+  --line:#344148;
+  --ink:#f3f5f2;
+  --muted:#b3c1c3;
+  --accent:#acf378;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  --wrap:1160px;
+}
+* {
+  box-sizing:border-box;
+}
+html {
+  scroll-behavior:smooth;
+  scroll-padding-top:5.5rem;
+}
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font:16px/1.65 system-ui,sans-serif;
+}
+a {
+  color:var(--accent);
+  text-underline-offset:.22em;
+}
+a:hover {
+  text-decoration-thickness:2px;
+}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible {
+  outline:2px solid var(--accent);
+  outline-offset:4px;
+}
+header {
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#101518f5;
+  border-bottom:1px solid var(--line);
+}
+.wrap {
+  width:min(var(--wrap),calc(100% - 3rem));
+  margin:auto;
+}
+.bar {
+  min-height:4.3rem;
+  display:flex;
+  gap:1.5rem;
+  align-items:center;
+  justify-content:space-between;
+}
+.brand {
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+  color:var(--ink);
+  font:700 1.25rem var(--mono);
+  text-decoration:none;
+}
+.brand span {
+  display:grid;
+  place-items:center;
+  width:2rem;
+  height:2rem;
+  background:var(--accent);
+  color:var(--bg);
+  border-radius:.45rem;
+}
+nav {
+  display:flex;
+  gap:1.25rem;
+  flex-wrap:wrap;
+}
+nav a {
+  color:var(--muted);
+  font-size:.9rem;
+  text-decoration:none;
+}
+.hero {
+  background:radial-gradient(ellipse at 90% 10%,#253623 0,transparent 54%),var(--bg);
+  border-bottom:1px solid var(--line);
+}
+.hero .wrap {
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  align-items:center;
+  gap:3.8rem;
+  padding:6.5rem 0;
+}
+.eyebrow {
+  font:700 .8rem var(--mono);
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--accent);
+}
+h1,h2,h3 {
+  line-height:1.13;
+  margin:0 0 1rem;
+}
+h1 {
+  font-size:clamp(2.85rem,7.4vw,5.5rem);
+  letter-spacing:-.055em;
+}
+h2 {
+  font-size:clamp(2rem,4.4vw,3.4rem);
+  letter-spacing:-.055em;
+}
+h3 {
+  font-size:1.2rem;
+  letter-spacing:-.02em;
+}
+p {
+  margin:0 0 1rem;
+  color:var(--muted);
+}
+.hero p:not(.eyebrow) {
+  font-size:1.15rem;
+  max-width:41ch;
+  margin-bottom:1.75rem;
+}
+.actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:.7rem;
+}
+.action,button {
+  font:700 .88rem system-ui,sans-serif;
+  border:1px solid var(--line);
+  border-radius:.45rem;
+  padding:.7rem 1rem;
+  background:var(--panel);
+  color:var(--ink);
+  text-decoration:none;
+  cursor:pointer;
+}
+.primary {
+  background:var(--accent);
+  color:#172017;
+  border-color:var(--accent);
+}
+.action:hover,button:hover {
+  border-color:var(--accent);
+}
+.terminal,.snippet {
+  background:#11191b;
+  border:1px solid var(--line);
+  border-radius:.7rem;
+  overflow:hidden;
+}
+.terminal {
+  box-shadow:0 28px 65px #0006;
+}
+.code-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:.65rem .85rem;
+  background:#202b2d;
+  color:var(--muted);
+  font: .78rem var(--mono);
+  gap:1rem;
+}
+.code-head button {
+  padding:.25rem .55rem;
+  font-size:.76rem;
+}
+.lights {
+  color:var(--accent);
+  letter-spacing:.15em;
+}
+pre {
+  margin:0;
+  padding:1rem;
+  overflow:auto;
+  font: .84rem/1.85 var(--mono);
+  color:#daebdf;
+  white-space:pre;
+}
+code {
+  font-family:var(--mono);
+  font-size:.9em;
+  color:#c9edb5;
+}
+section {
+  padding:4.5rem 0;
+  border-bottom:1px solid var(--line);
+}
+.lede {
+  max-width:68ch;
+}
+.columns {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1.1rem;
+  margin-top:1.4rem;
+}
+.card {
+  background:var(--panel);
+  padding:1.25rem;
+  border:1px solid var(--line);
+  border-radius:.65rem;
+  min-width:0;
+}
+.card p:last-child {
+  margin-bottom:0;
+}
+.section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:end;
+  gap:1.2rem;
+  margin-bottom:1rem;
+}
+.section-head p {
+  margin:0;
+}
+.search label {
+  display:block;
+  font-size:.83rem;
+  margin-bottom:.3rem;
+  color:var(--muted);
+}
+input {
+  font:inherit;
+  width:min(100%,25rem);
+  padding:.55rem .7rem;
+  border:1px solid var(--line);
+  border-radius:.4rem;
+  background:#11191b;
+  color:var(--ink);
+}
+.reference {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.65rem;
+}
+.reference details {
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:.45rem;
+  min-width:0;
+}
+.reference details[open] {
+  border-color:#657d64;
+}
+.reference summary {
+  padding:.75rem 1rem;
+  cursor:pointer;
+}
+.reference summary span {
+  display:block;
+  color:var(--muted);
+  font-size:.87rem;
+  margin-left:1.05rem;
+}
+.reference .content {
+  padding:0 1rem 1rem;
+}
+.reference dl {
+  margin:.65rem 0 1rem;
+}
+.reference dt {
+  font: .84rem var(--mono);
+  color:var(--accent);
+  margin-top:.55rem;
+}
+.reference dd {
+  margin:0;
+  font-size:.88rem;
+  color:var(--muted);
+}
+.reference pre {
+  border-radius:.4rem;
+  background:#11191b;
+}
+.reference [hidden] {
+  display:none;
+}
+footer {
+  padding:1.8rem 0;
+  color:var(--muted);
+}
+.skip {
+  position:absolute;
+  left:-9999px;
+}
+.skip:focus {
+  left:1rem;
+  top:1rem;
+  z-index:5;
+  background:var(--bg);
+  padding:.5rem;
+}
+@media(max-width:780px) {
+  .hero .wrap {
+    grid-template-columns:1fr;
+    padding:4rem 0;
+    gap:2rem;
+  }
+  .columns,.reference {
+    grid-template-columns:1fr;
+  }
+  .section-head {
+    display:block;
+  }
+  .search {
+    margin-top:1rem;
+  }
+  section {
+    padding:3rem 0;
+  }
+}
+@media(max-width:460px) {
+  .wrap {
+    width:calc(100% - 1.5rem);
+  }
+  .bar {
+    gap:.6rem;
+  }
+  .bar nav {
+    gap:.65rem;
+  }
+  .bar nav a {
+    font-size:.77rem;
+  }
+  h1 {
+    font-size:3rem;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  html {
+    scroll-behavior:auto;
+  }
+}
+</style>
+</head>
+<body id="top">
+<a class="skip" href="#main">Skip to content</a>
+<header><div class="wrap bar"><a class="brand" href="#top"><span aria-hidden="true">F</span> Forge</a><nav aria-label="Main navigation"><a href="#install">Install</a><a href="#workflows">Workflows</a><a href="#commands">Commands</a></nav></div></header>
+<main id="main">
+<div class="hero"><div class="wrap">
+<div><p class="eyebrow">A CLI for C and C++</p><h1>From source<br>to executable.</h1><p>Scaffold a project, declare dependencies in <code>Forge.toml</code>, and build with CMake. Use the same commands for an application, a library, or a workspace.</p><div class="actions"><a class="action primary" href="#install">Get started</a><a class="action" href="#commands">Command reference</a></div></div>
+<div class="terminal"><div class="code-head"><span class="lights" aria-hidden="true">● ● ●</span><span>First build</span><button type="button" data-copy="quick-code" hidden>Copy</button></div><pre id="quick-code">forge new hello --defaults
+cd hello
+forge build
+forge run -- --version
+forge test</pre></div>
+</div></div>
+
+<section id="install"><div class="wrap">
+<p class="eyebrow">Getting started</p><h2>Install Forge</h2><p class="lede">Forge runs on macOS and Linux. Put Bash 4+ on your PATH. Use <code>forge doctor</code> to check CMake, a C++ compiler, Ninja, Git, jq, Python with tomllib, Conan 2, and ShellCheck.</p>
+<div class="columns">
+<div class="card"><h3>From a source directory</h3><p>Run this from the Forge checkout or an unpacked source archive. The installer registers Bash and Zsh completions.</p><div class="snippet"><div class="code-head"><span>Shell</span><button type="button" data-copy="install-code" hidden>Copy</button></div><pre id="install-code">sh install.sh --source .
+export PATH="$HOME/.local/bin:$PATH"
+forge doctor</pre></div></div>
+<div class="card"><h3>From a Git repository</h3><p>When a Forge repository URL is available, substitute your installer and repository URLs. Run <code>forge update</code> to refresh Forge or <code>forge uninstall</code> to remove it and its completions.</p><div class="snippet"><pre>curl -fsSL INSTALLER_URL |
+  sh -s -- --repo REPOSITORY_URL</pre></div></div>
+</div></div></section>
+
+<section id="workflows"><div class="wrap">
+<p class="eyebrow">Usage guide</p><h2>Workflows</h2>
+<div class="columns">
+<article class="card"><h3>Scaffold or adopt a project</h3><p><code>new</code> creates a directory. <code>init</code> works in the current directory. Each supplied metadata flag skips its prompt. Use <code>--defaults</code> for scripts. Scaffolds provide CMake presets, tests, and Zed and VS Code tasks.</p><pre>forge new --name hello --git
+forge init --lib --name widget --defaults</pre></article>
+<article class="card"><h3>Build, run, and test</h3><p>Build debug or release presets. Forward application arguments after <code>--</code>. Run CTest with a filter or sanitizer. Use the debug target option to create a stable LLDB launch path.</p><pre>forge build --release
+forge run --release --bin hello -- --version
+forge test --sanitize address
+forge build --debug-target hello</pre></article>
+<article class="card"><h3>Declare dependencies</h3><p>Use Conan for locked packages, vcpkg for ports and features, full Git SHAs for FetchContent, or relative paths for local CMake libraries. Edit Conan <code>ref</code> and <code>conan_options</code> in TOML. vcpkg supports <code>features</code>, <code>default_features</code>, and exact versions with a workspace baseline.</p><pre>forge add fmt/12.1.0 --conan
+forge deps lock
+forge add zlib --vcpkg --cmake-target ZLIB::ZLIB
+forge deps status --format json</pre></article>
+<article class="card"><h3>Grow a workspace</h3><p>Each member gets its own manifest. Generated libraries link into the parent targets. C++ library scaffolds include a class with defaulted copy and move operations and a virtual destructor. The namespace defaults to the library project name.</p><pre>forge generate lib math --namespace acme::numeric
+forge generate lib codec --c --static
+forge generate lib plugin --shared
+forge generate bin worker
+forge remove math --lib</pre></article>
+<article class="card"><h3>Reconcile generated files</h3><p>Preview changes before applying a three-way merge. Forge records conflicts as proposals. Dependency removal updates manifests and syncs CMake. A detached library keeps its source files.</p><pre>forge sync --check
+forge sync --diff
+forge sync --apply --yes
+forge remove fmt</pre></article>
+<article class="card"><h3>Release and automate</h3><p>A successful numeric Git tag updates the app version when the generated hook is installed. CMake uses the numeric version and the default app displays the full tag. New projects include GitHub Actions for Debug and Release on Windows, Linux, and macOS. Linux exports a cached dependency OCI image and builds a separate project image from that exact image. Check formatting, export metadata, or build API docs with Doxygen.</p><pre>git tag v1.2.3
+forge build &amp;&amp; forge run -- --version
+forge workflow init
+forge fmt --check
+forge metadata --format json
+forge docs</pre></article>
+</div></div></section>
+
+<section id="commands"><div class="wrap">
+<div class="section-head"><div><p class="eyebrow">CLI reference</p><h2>Commands and options</h2><p>Open a command for its options and examples. In the terminal, run <code>forge COMMAND --help</code>.</p></div><div class="search" id="search" hidden><label for="filter">Filter commands or flags</label><input id="filter" type="search" placeholder="For example: --sanitize" autocomplete="off"></div></div>
+<p id="command-count" role="status" hidden></p>
+<div id="command-list" class="reference">
+<details data-command="help"><summary><code>forge help [COMMAND [SUBCOMMAND]]</code><span>Show this help</span></summary>
+<div class="content">
+<pre>forge help deps pin</pre></div></details>
+<details data-command="version"><summary><code>forge version</code><span>Print the Forge version</span></summary>
+<div class="content">
+<pre>forge version</pre></div></details>
+<details data-command="doctor"><summary><code>forge doctor</code><span>Check the local toolchain</span></summary>
+<div class="content">
+<pre>forge doctor</pre></div></details>
+<details data-command="new"><summary><code>forge new [NAME] [OPTIONS]</code><span>Prompt for details and scaffold a directory</span></summary>
+<div class="content">
+<dl>
+<dt>--name NAME</dt><dd>Supply the project name and skip its prompt</dd>
+<dt>--version VERSION</dt><dd>Set one to four numeric version components</dd>
+<dt>--description TEXT</dt><dd>Write the description to Forge.toml and README</dd>
+<dt>--author NAME</dt><dd>Set the author name</dd>
+<dt>--email ADDRESS</dt><dd>Set the author email</dd>
+<dt>--namespace NAME</dt><dd>Set the C++ library namespace (defaults to its project name)</dd>
+<dt>--bin</dt><dd>Scaffold an application (default)</dd>
+<dt>--lib</dt><dd>Scaffold a library</dd>
+<dt>--git</dt><dd>Initialize Git and register the release-tag hook</dd>
+<dt>--defaults</dt><dd>Skip prompts for omitted fields</dd>
+<dt>--static</dt><dd>Build a static library (default)</dd>
+<dt>--shared</dt><dd>Build a shared library</dd>
+<dt>--dynamic</dt><dd>Alias for --shared</dd>
+</dl>
+<pre>forge new --name hello --git
+forge new hello --defaults --version 1.2.3</pre></div></details>
+<details data-command="init"><summary><code>forge init [OPTIONS]</code><span>Prompt for project details in the current directory</span></summary>
+<div class="content">
+<dl>
+<dt>--name NAME</dt><dd>Supply the project name and skip its prompt</dd>
+<dt>--version VERSION</dt><dd>Set one to four numeric version components</dd>
+<dt>--description TEXT</dt><dd>Write the description to Forge.toml and README</dd>
+<dt>--author NAME</dt><dd>Set the author name</dd>
+<dt>--email ADDRESS</dt><dd>Set the author email</dd>
+<dt>--namespace NAME</dt><dd>Set the C++ library namespace (defaults to its project name)</dd>
+<dt>--bin</dt><dd>Scaffold an application (default)</dd>
+<dt>--lib</dt><dd>Scaffold a library</dd>
+<dt>--git</dt><dd>Initialize Git and register the release-tag hook</dd>
+<dt>--defaults</dt><dd>Skip prompts for omitted fields</dd>
+<dt>--static</dt><dd>Build a static library (default)</dd>
+<dt>--shared</dt><dd>Build a shared library</dd>
+<dt>--dynamic</dt><dd>Alias for --shared</dd>
+</dl>
+<pre>forge init --name widget --lib --defaults</pre></div></details>
+<details data-command="build"><summary><code>forge build [OPTIONS]</code><span>Configure and compile a project or target</span></summary>
+<div class="content">
+<dl>
+<dt>--release</dt><dd>Build the release preset</dd>
+<dt>--target NAME</dt><dd>Build one CMake target</dd>
+<dt>--toolchain FILE</dt><dd>Use a CMake toolchain file</dd>
+<dt>--debug-target NAME</dt><dd>Build one executable and create its LLDB launch path</dd>
+<dt>--link-compile-commands</dt><dd>Replace the root compilation database link</dd>
+</dl>
+<pre>forge build --debug-target hello
+forge build --release --target hello</pre></div></details>
+<details data-command="run"><summary><code>forge run [OPTIONS] [-- ARGS]</code><span>Run a built executable and forward arguments</span></summary>
+<div class="content">
+<dl>
+<dt>--release</dt><dd>Select the release build</dd>
+<dt>--debug</dt><dd>Select the debug build</dd>
+<dt>--bin NAME</dt><dd>Select a declared executable</dd>
+<dt>--</dt><dd>Forward remaining arguments to the executable</dd>
+</dl>
+<pre>forge run --release --bin hello -- --version</pre></div></details>
+<details data-command="test"><summary><code>forge test [FILTER] [OPTIONS]</code><span>Run CTest with a filter, repeat count, or sanitizer</span></summary>
+<div class="content">
+<dl>
+<dt>--repeat N</dt><dd>Repeat tests until failure, up to N times</dd>
+<dt>--allow-no-tests</dt><dd>Allow an empty CTest selection</dd>
+<dt>--release</dt><dd>Use the release preset</dd>
+<dt>--sanitize NAME</dt><dd>Build and test in an isolated sanitizer directory</dd>
+</dl>
+<pre>forge test smoke --repeat 3
+forge test --sanitize address</pre></div></details>
+<details data-command="clean"><summary><code>forge clean [OPTIONS]</code><span>Remove Forge-owned build directories</span></summary>
+<div class="content">
+<dl>
+<dt>--profile NAME</dt><dd>Clean the given build profile</dd>
+<dt>--all</dt><dd>Clean all Forge build profiles (requires confirmation)</dd>
+</dl>
+<pre>forge clean --profile release --dry-run
+forge clean --all --yes</pre></div></details>
+<details data-command="add"><summary><code>forge add NAME[/VERSION] [OPTIONS]</code><span>Declare a dependency and sync the workspace</span></summary>
+<div class="content">
+<dl>
+<dt>--conan</dt><dd>Discover Conan CMake metadata and link a target</dd>
+<dt>--vcpkg</dt><dd>Add and link a vcpkg port</dd>
+<dt>--source SOURCE</dt><dd>Declare a dependency source</dd>
+<dt>--ref REF</dt><dd>Set the Conan reference</dd>
+<dt>--url URL</dt><dd>Set the Git repository URL</dd>
+<dt>--rev SHA</dt><dd>Pin a full Git commit SHA</dd>
+<dt>--sha SHA</dt><dd>Alias for --rev</dd>
+<dt>--tag TAG</dt><dd>Resolve a Git tag</dd>
+<dt>--branch BRANCH</dt><dd>Resolve a Git branch</dd>
+<dt>--path DIRECTORY</dt><dd>Set a project-relative dependency directory</dd>
+<dt>--cmake-target NAME</dt><dd>Set the imported CMake target</dd>
+<dt>--cmake-package NAME</dt><dd>Override the CMake package name</dd>
+<dt>--target NAME</dt><dd>Choose the local target to link</dd>
+<dt>--option KEY=VALUE</dt><dd>Set a Conan option; repeat as needed</dd>
+</dl>
+<pre>forge add fmt/12.1.0 --conan --target hello
+forge add fmt --vcpkg
+forge add logger --source path --path vendor/logger --cmake-target logger</pre></div></details>
+<details data-command="remove"><summary><code>forge remove NAME [--lib]</code><span>Remove a dependency or detach a library, then sync</span></summary>
+<div class="content">
+<dl>
+<dt>--lib</dt><dd>Detach a generated library while preserving its files</dd>
+</dl>
+<pre>forge remove widget --lib
+forge remove fmt</pre></div></details>
+<details data-command="deps"><summary><code>forge deps [lock|pin|status]</code><span>Manage dependency locks and pins</span></summary>
+<div class="content">
+<pre>forge deps status --format json</pre></div></details>
+<details data-command="deps lock"><summary><code>forge deps lock</code><span>Create or refresh the workspace Conan lock</span></summary>
+<div class="content">
+<pre>forge deps lock</pre></div></details>
+<details data-command="deps pin"><summary><code>forge deps pin NAME [OPTIONS]</code><span>Resolve and save a full Git SHA</span></summary>
+<div class="content">
+<dl>
+<dt>--tag TAG</dt><dd>Resolve a Git tag</dd>
+<dt>--branch BRANCH</dt><dd>Resolve a Git branch</dd>
+<dt>--sha SHA</dt><dd>Use a full SHA without resolving a remote ref</dd>
+</dl>
+<pre>forge deps pin vendor --tag v1.2.3</pre></div></details>
+<details data-command="deps status"><summary><code>forge deps status [--format FORMAT]</code><span>Report dependencies, lock state, and drift</span></summary>
+<div class="content">
+<dl>
+<dt>--format FORMAT</dt><dd>Select human-readable text or JSON</dd>
+</dl>
+<pre>forge deps status --format json</pre></div></details>
+<details data-command="sync"><summary><code>forge sync [--check|--diff|--apply]</code><span>Check, preview, or reconcile generated files</span></summary>
+<div class="content">
+<dl>
+<dt>--check</dt><dd>Fail when generated files are out of sync (default)</dd>
+<dt>--diff</dt><dd>Preview changes without writing</dd>
+<dt>--apply</dt><dd>Apply a three-way merge of generated files</dd>
+</dl>
+<pre>forge sync --diff
+forge sync --apply --yes</pre></div></details>
+<details data-command="docs"><summary><code>forge docs</code><span>Generate HTML documentation with Doxygen</span></summary>
+<div class="content">
+<pre>forge docs</pre></div></details>
+<details data-command="fmt"><summary><code>forge fmt [--check]</code><span>Format C and C++ sources with clang-format</span></summary>
+<div class="content">
+<dl>
+<dt>--check</dt><dd>Report formatting differences without editing</dd>
+</dl>
+<pre>forge fmt --check</pre></div></details>
+<details data-command="metadata"><summary><code>forge metadata [--format json]</code><span>Emit stable project metadata as JSON</span></summary>
+<div class="content">
+<dl>
+<dt>--format FORMAT</dt><dd>Select the metadata output format</dd>
+</dl>
+<pre>forge metadata --format json</pre></div></details>
+<details data-command="generate"><summary><code>forge generate lib|bin NAME [OPTIONS]</code><span>Scaffold a workspace member and sync</span></summary>
+<div class="content">
+<pre>forge generate lib widget --c</pre></div></details>
+<details data-command="generate lib"><summary><code>forge generate lib NAME [OPTIONS]</code><span>Create a C or C++ library member</span></summary>
+<div class="content">
+<dl>
+<dt>--c</dt><dd>Generate C source and a C-compatible header</dd>
+<dt>--cpp</dt><dd>Generate C++ sources (default)</dd>
+<dt>--namespace NAME</dt><dd>Set the C++ library namespace (defaults to its project name)</dd>
+<dt>--static</dt><dd>Build a static library (default)</dd>
+<dt>--shared</dt><dd>Build a shared library</dd>
+<dt>--dynamic</dt><dd>Alias for --shared</dd>
+</dl>
+<pre>forge generate lib widget --c
+forge generate lib math --namespace acme::numeric
+forge generate lib plugin --shared</pre></div></details>
+<details data-command="generate bin"><summary><code>forge generate bin NAME [--cpp]</code><span>Create a C++ application member</span></summary>
+<div class="content">
+<dl>
+<dt>--cpp</dt><dd>Generate C++ sources</dd>
+</dl>
+<pre>forge generate bin worker</pre></div></details>
+<details data-command="workflow"><summary><code>forge workflow [SUBCOMMAND]</code><span>Manage the generated CI workflow</span></summary>
+<div class="content">
+<pre>forge workflow init</pre></div></details>
+<details data-command="workflow init"><summary><code>forge workflow init</code><span>Create a GitHub Actions template</span></summary>
+<div class="content">
+<pre>forge workflow init --dry-run</pre></div></details>
+<details data-command="update"><summary><code>forge update</code><span>Refresh Forge from its installation source</span></summary>
+<div class="content">
+<pre>forge update</pre></div></details>
+<details data-command="uninstall"><summary><code>forge uninstall</code><span>Remove the installation and shell completions</span></summary>
+<div class="content">
+<pre>forge uninstall</pre></div></details>
+<details data-command="global"><summary><code>Global options</code><span>Options accepted across Forge commands</span></summary>
+<div class="content">
+<dl>
+<dt>--manifest-path FILE</dt><dd>Select a Forge.toml explicitly</dd>
+<dt>--quiet</dt><dd>Suppress progress output</dd>
+<dt>--verbose</dt><dd>Show diagnostic details</dd>
+<dt>--no-color</dt><dd>Disable ANSI color</dd>
+<dt>--force-color</dt><dd>Enable colors even without a terminal</dd>
+<dt>--dry-run</dt><dd>Preview supported operations without writing</dd>
+<dt>--offline</dt><dd>Disallow required remote lookups</dd>
+<dt>--yes</dt><dd>Confirm operations that require consent</dd>
+<dt>--help</dt><dd>Show context-specific help</dd>
+<dt>--version</dt><dd>Show the installed CLI version before a command</dd>
+</dl>
+<pre>forge --manifest-path libs/widget/Forge.toml build</pre></div></details>
+</div></div></section>
+</main>
+<footer><div class="wrap">Forge · <a href="#top">Back to top</a></div></footer>
+<script>
+const entries = [...document.querySelectorAll('#command-list details')];
+const filter = document.querySelector('#filter');
+const count = document.querySelector('#command-count');
+document.querySelector('#search').hidden = false;
+filter.addEventListener('input', () => {
+  const query = filter.value.trim().toLowerCase();
+  let visible = 0;
+  entries.forEach((entry) => {
+    entry.hidden = !entry.textContent.toLowerCase().includes(query);
+    if (!entry.hidden) visible++;
+  });
+  count.hidden = !query;
+  if (visible === 0) {
+    count.textContent = 'No commands match that filter.';
+  } else {
+    count.textContent = `${visible} matching ${visible === 1 ? 'entry' : 'entries'}`;
+  }
+});
+document.querySelectorAll('[data-copy]').forEach((button) => {
+  if (!navigator.clipboard) return;
+  button.hidden = false;
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById(button.dataset.copy).textContent);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Select text to copy';
+    }
+    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+  });
+});
+</script>
+</body>
+</html>

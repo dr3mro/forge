@@ -1,0 +1,11 @@
+#compdef forge
+
+local -a completed replies
+local -i word_index
+for (( word_index = 2; word_index < CURRENT; word_index++ )); do
+  completed+=("${words[word_index]}")
+done
+replies=("${(@f)$(command forge __complete "$PREFIX" "${completed[@]}")}")
+if (( ${#replies} )) && [[ -n "${replies[1]}" ]]; then
+  compadd -- "${replies[@]}"
+fi

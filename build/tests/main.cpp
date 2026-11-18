@@ -1,0 +1,9 @@
+// Author: Amr Osman <amr@mail.co>
+
+#include <cassert>
+
+int main() {
+  // Replace with real assertions once you add tests.
+  assert(true);
+  return 0;
+}

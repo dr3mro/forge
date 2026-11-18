@@ -1,0 +1,68 @@
+# shellcheck shell=bash
+# Forge command: clean.
+
+# Check that a build directory resolves below target without following a final symlink.
+_clean_safe_dir() {
+  local d="$1" real treal
+  [[ -L "${d}" ]] && return 1
+  path_is_safe_relative "${d#"${FORGE_ROOT}/target/"}" || return 1
+  real=$(cd "${d}" 2>/dev/null && pwd -P) || return 1
+  treal=$(cd "${FORGE_ROOT}/target" 2>/dev/null && pwd -P) || return 1
+  [[ "${real}" == "${treal}"/* ]] || return 1
+  return 0
+}
+
+# Remove selected build directories after validating their paths.
+cmd_clean() {
+  local profile="" all=0
+  while (( $# > 0 )); do
+    case "$1" in
+      --profile) profile="${2:-}"; [[ -n "${profile}" ]] || die "${EXIT_USAGE}" "--profile requires a value"; shift 2 ;;
+      --profile=*) profile="${1#*=}"; shift ;;
+      --all) all=1; shift ;;
+      --help | -h) cmd_help; return "${EXIT_OK}" ;;
+      -*) die "${EXIT_USAGE}" "unknown flag for 'clean': $1" ;;
+      *) die "${EXIT_USAGE}" "clean accepts no positional arguments" ;;
+    esac
+  done
+  [[ -z "${profile}" || "${profile}" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] \
+    || die "${EXIT_USAGE}" "invalid profile name: ${profile}"
+
+  require_project
+  manifest_load
+  local target_dir="${FORGE_ROOT}/target"
+  [[ -d "${target_dir}" ]] || { out "nothing to clean"; return "${EXIT_OK}"; }
+
+  local -a dirs=() d
+  if (( all )); then
+    for d in "${target_dir}"/*; do
+      [[ -d "${d}" ]] && dirs+=("${d}")
+    done
+    (( ${#dirs[@]} )) || { out "nothing to clean"; return "${EXIT_OK}"; }
+    confirm_action "Delete all build directories under target/?" \
+      || die "${EXIT_CONFLICT}" "clean aborted"
+  elif [[ -n "${profile}" ]]; then
+    for d in "${target_dir}/${profile}-"*; do
+      [[ -d "${d}" ]] && dirs+=("${d}")
+    done
+  else
+    d=$(resolve_build_dir "${profile}")
+    [[ -d "${d}" ]] && dirs+=("${d}")
+  fi
+
+  (( ${#dirs[@]} )) || { out "nothing to clean"; return "${EXIT_OK}"; }
+
+  for d in "${dirs[@]}"; do
+    if ! _clean_safe_dir "${d}"; then
+      fail "refusing unsafe path: ${d}"
+      continue
+    fi
+    if (( FORGE_DRY_RUN )); then
+      status "dry-run: would delete ${d#"${FORGE_ROOT}"/}"
+    else
+      progress "Removing ${d}"
+      rm -rf -- "${d}" || die "${EXIT_OTHER}" "could not delete ${d}"
+      out "deleted ${d#"${FORGE_ROOT}"/}"
+    fi
+  done
+}

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Fake Git for deterministic unit tests: resolves one tag to a fixed SHA.
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'git version 2.40.0\n'
+  exit 0
+fi
+if [[ "${1:-}" == "ls-remote" ]]; then
+  printf '1111111111111111111111111111111111111111\t%s\n' "${@:2}"
+  exit 0
+fi
+printf 'fake-git: unexpected invocation: %s\n' "$*" >&2
+exit 99

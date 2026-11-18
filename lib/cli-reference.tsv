@@ -1,0 +1,144 @@
+command	help	help [COMMAND [SUBCOMMAND]]	Show this help
+example	help	forge help deps pin
+command	version	version	Print the Forge version
+example	version	forge version
+command	doctor	doctor	Check the local toolchain
+example	doctor	forge doctor
+command	new	new [NAME] [OPTIONS]	Prompt for details and scaffold a directory
+example	new	forge new --name hello --git
+command	init	init [OPTIONS]	Prompt for project details in the current directory
+example	init	forge init --name widget --lib --defaults
+command	build	build [OPTIONS]	Configure and compile a project or target
+example	build	forge build --debug-target hello
+command	run	run [OPTIONS] [-- ARGS]	Run a built executable and forward arguments
+example	run	forge run --release --bin hello -- --version
+command	test	test [FILTER] [OPTIONS]	Run CTest with a filter, repeat count, or sanitizer
+example	test	forge test smoke --repeat 3
+command	clean	clean [OPTIONS]	Remove Forge-owned build directories
+example	clean	forge clean --profile release --dry-run
+command	add	add NAME[/VERSION] [OPTIONS]	Declare a dependency and sync the workspace
+example	add	forge add fmt/12.1.0 --conan --target hello
+command	remove	remove NAME [--lib]	Remove a dependency or detach a library, then sync
+example	remove	forge remove widget --lib
+command	deps	deps [lock|pin|status]	Manage dependency locks and pins
+example	deps	forge deps status --format json
+command	deps lock	deps lock	Create or refresh the workspace Conan lock
+example	deps lock	forge deps lock
+command	deps pin	deps pin NAME [OPTIONS]	Resolve and save a full Git SHA
+example	deps pin	forge deps pin vendor --tag v1.2.3
+command	deps status	deps status [--format FORMAT]	Report dependencies, lock state, and drift
+example	deps status	forge deps status --format json
+command	sync	sync [--check|--diff|--apply]	Check, preview, or reconcile generated files
+example	sync	forge sync --diff
+command	docs	docs	Generate HTML documentation with Doxygen
+example	docs	forge docs
+command	fmt	fmt [--check]	Format C and C++ sources with clang-format
+example	fmt	forge fmt --check
+command	metadata	metadata [--format json]	Emit stable project metadata as JSON
+example	metadata	forge metadata --format json
+command	generate	generate lib|bin NAME [OPTIONS]	Scaffold a workspace member and sync
+example	generate	forge generate lib widget --c
+command	generate lib	generate lib NAME [OPTIONS]	Create a C or C++ library member
+example	generate lib	forge generate lib widget --c
+command	generate bin	generate bin NAME [--cpp]	Create a C++ application member
+example	generate bin	forge generate bin worker
+command	workflow	workflow [SUBCOMMAND]	Manage the generated CI workflow
+example	workflow	forge workflow init
+command	workflow init	workflow init	Create a GitHub Actions template
+example	workflow init	forge workflow init --dry-run
+command	update	update	Refresh Forge from its installation source
+example	update	forge update
+command	uninstall	uninstall	Remove the installation and shell completions
+example	uninstall	forge uninstall
+option	global	--manifest-path FILE	Select a Forge.toml explicitly
+option	global	--quiet	Suppress progress output
+option	global	--verbose	Show diagnostic details
+option	global	--no-color	Disable ANSI color
+option	global	--force-color	Enable colors even without a terminal
+option	global	--dry-run	Preview supported operations without writing
+option	global	--offline	Disallow required remote lookups
+option	global	--yes	Confirm operations that require consent
+option	global	--help	Show context-specific help
+option	global	--version	Show the installed CLI version before a command
+option	new	--name NAME	Supply the project name and skip its prompt
+option	new	--version VERSION	Set one to four numeric version components
+option	new	--description TEXT	Write the description to Forge.toml and README
+option	new	--author NAME	Set the author name
+option	new	--email ADDRESS	Set the author email
+option	new	--namespace NAME	Set the C++ library namespace (defaults to its project name)
+option	new	--bin	Scaffold an application (default)
+option	new	--lib	Scaffold a library
+option	new	--git	Initialize Git and register the release-tag hook
+option	new	--defaults	Skip prompts for omitted fields
+option	init	--name NAME	Supply the project name and skip its prompt
+option	init	--version VERSION	Set one to four numeric version components
+option	init	--description TEXT	Write the description to Forge.toml and README
+option	init	--author NAME	Set the author name
+option	init	--email ADDRESS	Set the author email
+option	init	--namespace NAME	Set the C++ library namespace (defaults to its project name)
+option	init	--bin	Scaffold an application (default)
+option	init	--lib	Scaffold a library
+option	init	--git	Initialize Git and register the release-tag hook
+option	init	--defaults	Skip prompts for omitted fields
+option	build	--release	Build the release preset
+option	build	--target NAME	Build one CMake target
+option	build	--toolchain FILE	Use a CMake toolchain file
+option	build	--debug-target NAME	Build one executable and create its LLDB launch path
+option	build	--link-compile-commands	Replace the root compilation database link
+option	run	--release	Select the release build
+option	run	--debug	Select the debug build
+option	run	--bin NAME	Select a declared executable
+option	run	--	Forward remaining arguments to the executable
+option	test	--repeat N	Repeat tests until failure, up to N times
+option	test	--allow-no-tests	Allow an empty CTest selection
+option	test	--release	Use the release preset
+option	test	--sanitize NAME	Build and test in an isolated sanitizer directory	address undefined leak thread asan ubsan lsan tsan
+option	clean	--profile NAME	Clean the given build profile	debug release
+option	clean	--all	Clean all Forge build profiles (requires confirmation)
+option	add	--conan	Discover Conan CMake metadata and link a target
+option	add	--vcpkg	Add and link a vcpkg port
+option	add	--source SOURCE	Declare a dependency source	conan vcpkg git path
+option	add	--ref REF	Set the Conan reference
+option	add	--url URL	Set the Git repository URL
+option	add	--rev SHA	Pin a full Git commit SHA
+option	add	--sha SHA	Alias for --rev
+option	add	--tag TAG	Resolve a Git tag
+option	add	--branch BRANCH	Resolve a Git branch
+option	add	--path DIRECTORY	Set a project-relative dependency directory
+option	add	--cmake-target NAME	Set the imported CMake target
+option	add	--cmake-package NAME	Override the CMake package name
+option	add	--target NAME	Choose the local target to link
+option	add	--option KEY=VALUE	Set a Conan option; repeat as needed
+option	remove	--lib	Detach a generated library while preserving its files
+option	deps pin	--tag TAG	Resolve a Git tag
+option	deps pin	--branch BRANCH	Resolve a Git branch
+option	deps pin	--sha SHA	Use a full SHA without resolving a remote ref
+option	deps status	--format FORMAT	Select human-readable text or JSON	text json
+option	sync	--check	Fail when generated files are out of sync (default)
+option	sync	--diff	Preview changes without writing
+option	sync	--apply	Apply a three-way merge of generated files
+option	fmt	--check	Report formatting differences without editing
+option	metadata	--format FORMAT	Select the metadata output format	json
+option	generate lib	--c	Generate C source and a C-compatible header
+option	generate lib	--cpp	Generate C++ sources (default)
+option	generate lib	--namespace NAME	Set the C++ library namespace (defaults to its project name)
+option	generate bin	--cpp	Generate C++ sources
+example	new	forge new hello --defaults --version 1.2.3
+example	build	forge build --release --target hello
+example	test	forge test --sanitize address
+example	add	forge add fmt --vcpkg
+example	add	forge add logger --source path --path vendor/logger --cmake-target logger
+example	sync	forge sync --apply --yes
+example	clean	forge clean --all --yes
+example	remove	forge remove fmt
+example	generate lib	forge generate lib math --namespace acme::numeric
+option	new	--static	Build a static library (default)
+option	new	--shared	Build a shared library
+option	new	--dynamic	Alias for --shared
+option	init	--static	Build a static library (default)
+option	init	--shared	Build a shared library
+option	init	--dynamic	Alias for --shared
+option	generate lib	--static	Build a static library (default)
+option	generate lib	--shared	Build a shared library
+option	generate lib	--dynamic	Alias for --shared
+example	generate lib	forge generate lib plugin --shared

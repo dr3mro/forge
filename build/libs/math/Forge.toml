@@ -1,0 +1,21 @@
+schema = 1
+
+[package]
+name = "math"
+version = "0.1.0"
+author = "Amr Osman <amr@mail.co>"
+cppstd = "20"
+
+[build]
+generator = "Ninja"
+default_profile = "debug"
+
+[[lib]]
+name = "math"
+path = "src/math.cpp"
+links = []
+
+[[test]]
+name = "math_tests"
+path = "tests/main.cpp"
+links = ["math"]
