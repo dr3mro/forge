@@ -83,6 +83,18 @@ setup() {
   [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$(git -C "$SOURCE" rev-parse HEAD)" ]
 }
 
+@test "directory-source update reports up to date when the source is unchanged" {
+  cd "$SOURCE"
+  run sh install.sh --source .
+  [ "$status" -eq 0 ]
+  [ "$(cat "$INSTALLATION/.git/forge-version")" = '0.1.0' ]
+
+  run "$LAUNCHER" --offline update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'already up to date (v0.1.0)'* ]]
+  ! grep -q 'uncommitted change' "$INSTALLATION/lib/ui.sh"
+}
+
 @test "installer preserves an unrelated launcher and an installation with extra files" {
   mkdir -p "${LAUNCHER%/*}"
   printf 'user data\n' > "$LAUNCHER"

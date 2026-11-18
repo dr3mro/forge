@@ -182,38 +182,61 @@ forge_install() (
     abort 6 "no Forge installation at $install"
   fi
 
-  if [ "$mode" = --update ] && [ "$source_mode" != directory ]; then
+  # Report a current installation. Return 1 when the user asks to reinstall.
+  report_current() {
+    step_finish
+    printf 'Forge is already up to date (v%s).\n' "$1"
+    if [ -t 0 ]; then
+      printf 'Reinstall anyway? [y/N] '
+      IFS= read -r answer || answer=
+      case $answer in
+        y|Y|yes|YES|Yes) return 1 ;;
+      esac
+    fi
+    return 0
+  }
+
+  if [ "$mode" = --update ]; then
     step 'Checking the latest Forge release'
-    installed_version=$(awk -F'"' '/^FORGE_VERSION=/{print $2; exit}' "$install/bin/forge")
-    installed_head=$(git -C "$install" rev-parse HEAD 2>/dev/null || :)
-    latest_tag=$(
-      git ls-remote --tags --refs "$source" 2>/dev/null \
-        | awk '{ sub(/^refs\/tags\//, "", $2); print $2 }' \
-        | sed 's/^v//' \
-        | grep -E '^[0-9]+([.][0-9]+)*$' \
-        | sort -V \
-        | tail -n 1 || :
-    )
+    if [ -f "$install/.git/forge-version" ]; then
+      installed_version=$(cat "$install/.git/forge-version")
+    else
+      installed_version=$(awk -F'"' '/^FORGE_VERSION=/{print $2; exit}' "$install/bin/forge")
+    fi
+    latest_tag=''
     current=no
-    if [ -n "$latest_tag" ]; then
-      if [ "$latest_tag" = "$installed_version" ]; then current=yes; fi
-    elif [ -n "$installed_head" ]; then
-      remote_head=$(git ls-remote "$source" HEAD 2>/dev/null | awk 'NR == 1 {print $1}' || :)
-      if [ -n "$remote_head" ] && [ "$remote_head" = "$installed_head" ]; then current=yes; fi
+    if [ "$source_mode" = directory ]; then
+      # Local sources have no remote tag: an unchanged tree is already current.
+      same=yes
+      for item in bin lib templates install.sh uninstall.sh tools.versions LICENSE; do
+        if [ -e "$source/$item" ] || [ -d "$source/$item" ]; then
+          if [ ! -e "$install/$item" ] || ! diff -r -q "$source/$item" "$install/$item" >/dev/null 2>&1; then
+            same=no
+          fi
+        elif [ -e "$install/$item" ]; then
+          same=no
+        fi
+      done
+      if [ "$same" = yes ]; then current=yes; fi
+    else
+      installed_head=$(git -C "$install" rev-parse HEAD 2>/dev/null || :)
+      latest_tag=$(
+        git ls-remote --tags --refs "$source" 2>/dev/null \
+          | awk '{ sub(/^refs\/tags\//, "", $2); print $2 }' \
+          | sed 's/^v//' \
+          | grep -E '^[0-9]+([.][0-9]+)*$' \
+          | sort -V \
+          | tail -n 1 || :
+      )
+      if [ -n "$latest_tag" ]; then
+        if [ "$latest_tag" = "$installed_version" ]; then current=yes; fi
+      elif [ -n "$installed_head" ]; then
+        remote_head=$(git ls-remote "$source" HEAD 2>/dev/null | awk 'NR == 1 {print $1}' || :)
+        if [ -n "$remote_head" ] && [ "$remote_head" = "$installed_head" ]; then current=yes; fi
+      fi
     fi
     if [ "$current" = yes ]; then
-      step_finish
-      printf 'Forge is already up to date (v%s).\n' "${latest_tag:-$installed_version}"
-      if [ -t 0 ]; then
-        printf 'Reinstall anyway? [y/N] '
-        IFS= read -r answer || answer=
-        case $answer in
-          y|Y|yes|YES|Yes) ;;
-          *) exit 0 ;;
-        esac
-      else
-        exit 0
-      fi
+      report_current "${latest_tag:-$installed_version}" && exit 0
     fi
     step_finish
   fi
@@ -259,6 +282,7 @@ forge_install() (
     && [ -f "$lock/incoming/install.sh" ] && [ -f "$lock/incoming/uninstall.sh" ] \
     || abort 4 'the repository does not contain an installable Forge checkout'
   : > "$lock/incoming/.git/forge-install"
+  awk -F'"' '/^FORGE_VERSION=/{print $2; exit}' "$lock/incoming/bin/forge" > "$lock/incoming/.git/forge-version"
   step_finish
 
   step 'Publishing Forge installation'

@@ -269,8 +269,10 @@ before staging. It strips a leading `v`, selects the highest numeric tag with
 exits 0 without touching the checkout; an interactive "Reinstall anyway?
 [y/N]" can force it. When a Git source has no numeric tags (as with the public
 repository), it compares the installed HEAD with `git ls-remote "$source" HEAD`
-instead and reports the installed version. Directory sources keep the old
-behavior.
+instead and reports the installed version. For directory sources it compares
+the installable files in the source tree with the installed copy, so an
+unchanged local source is reported current while changed files still update.
+The staged install records its version in `.git/forge-version`.
 
 The explicit OCI dependency-image follow-up passed actionlint, six workflow
 and website checks, and the local Debug/Release packaging integration test.
