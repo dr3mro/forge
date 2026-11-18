@@ -43,6 +43,15 @@ _sync_label() {
   fi
 }
 
+# Find a legacy root user.cmake that can be moved without overwriting anything.
+_sync_legacy_user_cmake() {
+  local node="$1"
+  if [[ -f "${node}/user.cmake" && ! -L "${node}/user.cmake" \
+     && ! -e "${node}/cmake/user.cmake" && ! -L "${node}/cmake/user.cmake" ]]; then
+    printf '%s\n' "${node}/user.cmake"
+  fi
+}
+
 # Render incoming files for every manifest in the workspace.
 sync_prepare() {
   manifest_load
@@ -106,7 +115,7 @@ sync_detect_drift() {
   FORGE_SYNC_MESSAGES=()
   sync_prepare || return $?
 
-  local node rel cur new recorded state sha recorded_sha label drift=0
+  local node rel cur new recorded state sha recorded_sha label legacy drift=0
   for node in "${FORGE_GRAPH_NODES[@]}"; do
     state="${node}/.forge/state.json"
     label=$(_sync_label "${node}")
@@ -114,6 +123,10 @@ sync_detect_drift() {
     recorded_sha=$(_sync_state_field manifest "${state}")
     if [[ "${sha}" != "${recorded_sha}" ]]; then
       FORGE_SYNC_MESSAGES+=("${label}: manifest changed since last sync")
+      drift=1
+    fi
+    if [[ -n "$(_sync_legacy_user_cmake "${node}")" ]]; then
+      FORGE_SYNC_MESSAGES+=("${label}: move user.cmake into cmake/user.cmake")
       drift=1
     fi
     while IFS= read -r rel; do
@@ -207,7 +220,7 @@ sync_apply() {
     || die "${EXIT_CONFLICT}" "sync aborted"
 
   progress "Applying workspace changes"
-  local project_path member_path real_root
+  local project_path member_path real_root node label legacy
   real_root=$(cd -- "${FORGE_SYNC_ROOT}" && pwd -P) \
     || die "${EXIT_CONFLICT}" "could not resolve the workspace root"
   for project_path in "${FORGE_GRAPH_NODES[@]}"; do
@@ -218,8 +231,19 @@ sync_apply() {
     sync_check_destinations "${project_path}"
   done
 
-  local node rel cur base new state recorded cur_hash new_hash merged backup
-  local proposal_dir backup_dir label conflict=0
+  # Move legacy user files before rendering changes; they are never managed.
+  for node in "${FORGE_GRAPH_NODES[@]}"; do
+    label=$(_sync_label "${node}")
+    legacy=$(_sync_legacy_user_cmake "${node}")
+    [[ -n "${legacy}" ]] || continue
+    mkdir -p -- "${node}/cmake" || die "${EXIT_OTHER}" "could not create ${label}/cmake"
+    mv -- "${legacy}" "${node}/cmake/user.cmake" \
+      || die "${EXIT_OTHER}" "could not move ${label}/user.cmake"
+    out "moved ${label}/user.cmake to cmake/user.cmake"
+  done
+
+  local rel cur base new state recorded cur_hash new_hash merged backup
+  local proposal_dir backup_dir conflict=0
   for node in "${FORGE_GRAPH_NODES[@]}"; do
     label=$(_sync_label "${node}")
     state="${node}/.forge/state.json"
@@ -324,7 +348,7 @@ sync_apply() {
 # Refuse indirect sync destinations before changing managed files.
 sync_check_destinations() {
   local root="$1" rel
-  local -a paths=(cmake cmake/deps .forge .forge/state.json .forge/base
+  local -a paths=(cmake cmake/user.cmake cmake/deps .forge .forge/state.json .forge/base
     .forge/base/cmake .forge/base/cmake/deps .forge/backups .forge/proposals)
   while IFS= read -r rel; do
     paths+=("${rel}" ".forge/base/${rel}")

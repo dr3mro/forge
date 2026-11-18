@@ -189,6 +189,20 @@ conan_toolchain_path() {
   find "${build_dir}" -name conan_toolchain.cmake -print -quit 2>/dev/null
 }
 
+# Fail a reference lookup with the versions the configured remotes offer.
+_conan_metadata_failure() {
+  local ref="$1" name="$2" versions=""
+  if (( ! FORGE_OFFLINE )); then
+    versions=$(conan list "${name}/*" -r '*' --format=json 2>/dev/null \
+      | jq -r '[.[] | keys[]] | unique[]' 2>/dev/null \
+      | sort -V | paste -sd, - 2>/dev/null | sed 's/,/, /g' || :)
+  fi
+  if [[ -n "${versions}" ]]; then
+    die "${EXIT_DEP}" "${ref} is not available in Conan remotes. Available versions: ${versions}"
+  fi
+  die "${EXIT_DEP}" "could not inspect ${ref}; supply --cmake-target and --cmake-package to use explicit CMake names"
+}
+
 # Read the selected package's CMake consumer properties from Conan install JSON.
 conan_cmake_metadata() (
   local ref="$1" profile="$2" explicit_target="$3"
@@ -203,7 +217,7 @@ conan_cmake_metadata() (
   (( ! FORGE_OFFLINE )) || args+=(--no-remote)
   for option in "$@"; do args+=("-o=${name}/*:${option}"); done
   conan "${args[@]}" > "${tmp}/metadata.json" \
-    || die "${EXIT_DEP}" "could not inspect ${ref}; supply --cmake-target and --cmake-package to use explicit CMake names"
+    || _conan_metadata_failure "${ref}" "${name}"
   local metadata
   metadata=$(jq -ce --arg name "${name}" --arg chosen "${explicit_target}" '
     [.graph.nodes[] | select(.name == $name and .context == "host")] | first as $node

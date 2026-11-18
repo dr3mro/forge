@@ -117,6 +117,28 @@ TOML
   cmp before.toml Forge.toml
 }
 
+@test "unavailable Conan version reports every version the remotes offer" {
+  mkdir fakebin
+  cat > fakebin/conan <<'SH'
+#!/bin/sh
+case $1 in
+  --version) printf 'Conan version 2.33.0\n' ;;
+  list) printf '%s\n' '{"conancenter":{"fmt/12.0.0":{},"fmt/12.1.0":{},"fmt/12.2.0":{}}}' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x fakebin/conan
+  export PATH="$PWD/fakebin:$PATH"
+  cp Forge.toml before.toml
+
+  run_forge --no-color add --yes fmt/12.2.1 --conan
+  [ "$status" -eq 4 ]
+  [[ "$output" == *'fmt/12.2.1 is not available in Conan remotes'* ]]
+  [[ "$output" == *'fmt/12.0.0, fmt/12.1.0, fmt/12.2.0'* ]]
+  [[ "$output" != *'supply --cmake-target'* ]]
+  cmp before.toml Forge.toml
+}
+
 @test "bare Conan package records the exact version selected by Conan" {
   mkdir fakebin
   cat > fakebin/conan <<'SH'

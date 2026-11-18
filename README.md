@@ -248,6 +248,7 @@ modules under `cmake/`. Each dependency has its own module such as
 and apply it with `forge sync --apply`.
 
 Set CMake defaults in `Forge.toml` using strings, numbers, or booleans.
+Forge renders them into the managed `cmake/ProjectOptionsUser.cmake`.
 
 ```toml
 [cmake.variables]
@@ -255,16 +256,18 @@ CMAKE_CXX_STANDARD = 23
 BUILD_TESTING = false
 ```
 
-Put project-specific overrides in the root `user.cmake`. Forge loads it
-after the manifest defaults and before dependencies, targets, and CTest.
-Sync preserves this file. Use `cmake_language(DEFER CALL ...)` for changes
-that require targets to exist. Set compiler and toolchain options that
-CMake needs before `project()` through a preset or `forge build --toolchain`.
+Put project-specific overrides in `cmake/user.cmake`. Forge loads it after
+the manifest defaults and before diagnostics, dependencies, targets, and
+CTest. Sync never records or rewrites this file, and it moves an older root
+`user.cmake` into `cmake/user.cmake` on the next `forge sync --apply`.
+Use `cmake_language(DEFER CALL ...)` for changes that require targets to exist.
+Set compiler and toolchain options that CMake needs before `project()`
+through a preset or `forge build --toolchain`.
 
-Clang builds enable Cargo-style diagnostics by default: colored output,
-warning names and notes, include stacks, template diff trees, strict
-`-Wall -Wextra -Wpedantic` checks, and a three-error limit. Set
-`FORGE_CLANG_DIAGNOSTICS` to `OFF` in `user.cmake`, or pass
+Clang diagnostics live in the managed `cmake/Diagnostics.cmake` and are on
+by default: colored output, warning names and notes, include stacks, template
+diff trees, strict `-Wall -Wextra -Wpedantic` checks, and a three-error limit.
+Set `FORGE_CLANG_DIAGNOSTICS` to `OFF` in `cmake/user.cmake`, or pass
 `-DFORGE_CLANG_DIAGNOSTICS=OFF`, to opt out. Other compilers are unaffected.
 For inline editor diagnostics and automatic fixes, point clangd at the
 generated `compile_commands.json`; clang-tidy can use the same database.

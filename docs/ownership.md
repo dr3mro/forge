@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | `Forge.toml` | User intent | `add`/`remove` edit it transactionally; ambiguous edits are refused |
 | `CMakeLists.txt`, `cmake/*.cmake`, `cmake/deps/*.cmake` | User-owned after creation | Created once; `sync` proposes changes |
-| `user.cmake` | User-owned | Scaffolded if absent and preserved by sync |
+| `cmake/user.cmake` | User-owned | Scaffolded if absent; never recorded, rewritten, or removed by sync; a legacy root `user.cmake` is moved here |
 | `CMakePresets.json`, `CMakeUserPresets.json` | User-owned | Same sync policy; Conan may write its own user presets |
 | `conanfile.txt` | Generated recipe with local edits preserved | Sync creates it when Conan is used and backs up an unmodified recipe when it is no longer needed |
 | `conan.lock` | Conan's | Written by `forge deps lock`; committed |

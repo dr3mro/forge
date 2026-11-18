@@ -24,20 +24,27 @@ load ../test_helper
   cd "$old"; rm -rf "$dir"
 }
 
-@test "new scaffolds Cargo-style Clang diagnostics in the root CMakeLists" {
-  local dir="${BATS_TMPDIR}/forge-diag-$$" old="$PWD"
+@test "new scaffolds user, manifest-variable, and diagnostics modules under cmake" {
+  local dir="${BATS_TMPDIR}/forge-cmake-modules-$$" old="$PWD"
   mkdir -p "$dir"; cd "$dir"
   run_forge --no-color new hello --defaults
   [ "$status" -eq 0 ]
   cd hello
+  [ -f cmake/user.cmake ]
+  [ ! -e user.cmake ]
+  [ -f cmake/ProjectOptionsUser.cmake ]
+  [ -f cmake/Diagnostics.cmake ]
   local flag
   for flag in -fcolor-diagnostics -fdiagnostics-show-option \
     -fdiagnostics-show-note-include-stack -ferror-limit=3 \
     -fno-elide-type -fdiagnostics-show-template-tree \
     -Wall -Wextra -Wpedantic; do
-    grep -Fq -- "$flag" CMakeLists.txt
+    grep -Fq -- "$flag" cmake/Diagnostics.cmake
   done
-  grep -Fq 'option(FORGE_CLANG_DIAGNOSTICS' CMakeLists.txt
+  grep -Fq 'include(cmake/user.cmake OPTIONAL)' CMakeLists.txt
+  grep -Fq 'include(cmake/ProjectOptionsUser.cmake)' CMakeLists.txt
+  grep -Fq 'forge_clang_diagnostics()' CMakeLists.txt
+  jq -e '.files | has("cmake/user.cmake") | not' .forge/state.json
   run_forge --no-color sync --check
   [ "$status" -eq 0 ]
   cd "$old"; rm -rf "$dir"

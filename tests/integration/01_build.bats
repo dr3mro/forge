@@ -573,7 +573,7 @@ CMAKE_CXX_STANDARD = 23
 BUILD_TESTING = false
 FORGE_LITERAL = 'text ]=] ${UNCHANGED}'
 TOML
-  cat > user.cmake <<'CMAKE'
+  cat > cmake/user.cmake <<'CMAKE'
 if(NOT FORGE_LITERAL STREQUAL [==[text ]=] ${UNCHANGED}]==])
   message(FATAL_ERROR "Manifest string was altered")
 endif()
@@ -584,7 +584,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(BUILD_TESTING ON)
 cmake_language(DEFER CALL target_compile_definitions hello PRIVATE USER_CMAKE_RAN)
 CMAKE
-  cp user.cmake "$DIR/user.before"
+  cp cmake/user.cmake "$DIR/user.before"
   cat >> src/main.cpp <<'CPP'
 #if __cplusplus != 201703L || !defined(USER_CMAKE_RAN)
 #error "expected user.cmake settings to take precedence"
@@ -592,8 +592,14 @@ CMAKE
 CPP
   run_forge sync --apply --yes
   [ "$status" -eq 0 ]
-  cmp "$DIR/user.before" user.cmake
-  jq -e '.files | has("user.cmake") | not' .forge/state.json
+  cmp "$DIR/user.before" cmake/user.cmake
+  jq -e '.files | has("cmake/user.cmake") | not' .forge/state.json
+  grep -Fq 'set(CMAKE_CXX_STANDARD [=[' cmake/ProjectOptionsUser.cmake
+  grep -Fxq '23]=])' cmake/ProjectOptionsUser.cmake
+  grep -Fq 'set(BUILD_TESTING [=[' cmake/ProjectOptionsUser.cmake
+  grep -Fxq 'OFF]=])' cmake/ProjectOptionsUser.cmake
+  grep -Fq 'set(FORGE_LITERAL [==[' cmake/ProjectOptionsUser.cmake
+  grep -Fq -- '-fdiagnostics-show-template-tree' cmake/Diagnostics.cmake
   run_forge build
   [ "$status" -eq 0 ]
   run_forge test
@@ -606,7 +612,7 @@ CPP
   [ -f compile_commands.json ]
   grep -q -- '-fdiagnostics-show-template-tree' compile_commands.json
 
-  printf 'set(FORGE_CLANG_DIAGNOSTICS OFF)\n' > user.cmake
+  printf 'set(FORGE_CLANG_DIAGNOSTICS OFF)\n' > cmake/user.cmake
   CC=clang CXX=clang++ run_forge --no-color build
   [ "$status" -eq 0 ]
   ! grep -q -- '-fdiagnostics-show-template-tree' compile_commands.json

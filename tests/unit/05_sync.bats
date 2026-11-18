@@ -255,3 +255,27 @@ teardown() {
   run_forge sync --check
   [ "$status" -eq 0 ]
 }
+
+@test "sync moves a legacy root user.cmake into cmake without recording it" {
+  rm cmake/user.cmake
+  printf '# my local overrides\n' > user.cmake
+  run_forge --no-color sync --check
+  [ "$status" -eq 6 ]
+  [[ "$output" == *'move user.cmake into cmake/user.cmake'* ]]
+
+  run_forge --no-color sync --apply --yes
+  [ "$status" -eq 0 ]
+  [ -f cmake/user.cmake ]
+  [ ! -e user.cmake ]
+  grep -Fxq '# my local overrides' cmake/user.cmake
+  jq -e '.files | has("cmake/user.cmake") | not' .forge/state.json
+  run_forge sync --check
+  [ "$status" -eq 0 ]
+
+  # A second apply must never overwrite the moved user file.
+  printf '# edited by me\n' >> cmake/user.cmake
+  cp cmake/user.cmake user.before
+  run_forge sync --apply --yes
+  [ "$status" -eq 0 ]
+  cmp user.before cmake/user.cmake
+}

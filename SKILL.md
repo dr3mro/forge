@@ -145,7 +145,10 @@ projects for manual tests.
   Other bare names use a Conan version range and record the exact selected
   version. Offline Conan discovery, locks, and installs disable remotes.
   Explicit `--cmake-package` and `--cmake-target` bypass discovery for an exact
-  reference.
+  reference. When a ref cannot be resolved, `_conan_metadata_failure` queries
+  `conan list NAME/* -r '*' --format=json` and fails with every version the
+  remotes offer (version-sorted), instead of the misleading explicit-names hint;
+  offline mode keeps the generic message.
 - `forge add PORT --vcpkg` requires a bootstrapped checkout in `VCPKG_ROOT`
   at build time. Forge generates a workspace port manifest under the
   stable profile build directory. vcpkg is the outer toolchain and can
@@ -303,18 +306,22 @@ GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
   after 3 s), and returns 130 on Ctrl-C. It re-invokes `forge run --build` with
   the original global flags and forwarded `--` arguments. Dry-run only prints
   the plan; `python3` becomes a runtime requirement.
-- Projects scaffold a user-owned root `user.cmake`, included after
-  `ProjectOptions.cmake` and before version source, CTest, dependencies,
-  workspace, and targets. Sync never records it. CMake defaults can be set in
-  `[cmake.variables]` in `Forge.toml` (ident keys; string/number/boolean values
-  rendered as literal bracket-quoted `set(... PARENT_SCOPE)`). For overrides
-  that need targets to exist, use `cmake_language(DEFER CALL ...)` in
-  `user.cmake`; toolchain options that must precede `project()` belong in a
-  preset or `forge build --toolchain`. See README "Generated CMake layout",
+- Projects scaffold a user-owned `cmake/user.cmake`, included after
+  `ProjectOptions.cmake` and `cmake/ProjectOptionsUser.cmake` and before
+  diagnostics, version source, CTest, dependencies, workspace, and targets.
+  Sync never records, rewrites, or removes it, and `sync_apply` moves a legacy
+  root `user.cmake` into it (regular files only, never overwriting a target).
+  CMake defaults set in `[cmake.variables]` in `Forge.toml` (ident keys;
+  string/number/boolean values) render as literal bracket-quoted `set(...)`
+  into the managed `cmake/ProjectOptionsUser.cmake`. For overrides that need
+  targets to exist, use `cmake_language(DEFER CALL ...)` in `cmake/user.cmake`;
+  toolchain options that must precede `project()` belong in a preset or
+  `forge build --toolchain`. See README "Generated CMake layout",
   `docs/ownership.md`, and `docs/index.html`.
-- Generated root `CMakeLists.txt` enables Cargo-style Clang diagnostics when
-  `FORGE_CLANG_DIAGNOSTICS` (default ON, declared after `user.cmake` so it stays
-  overridable) and a Clang C/CXX compiler are in use: color, warning names,
+- Cargo-style Clang diagnostics live in the managed `cmake/Diagnostics.cmake`
+  as `forge_clang_diagnostics()`, called from the root after `cmake/user.cmake`.
+  `FORGE_CLANG_DIAGNOSTICS` (default ON via `option()` inside the function, so a
+  normal variable from `user.cmake` still wins) guards color, warning names,
   include stacks, template trees, `-Wall -Wextra -Wpedantic`, and
   `-ferror-limit=3`. Root `add_compile_options` is inherited by workspace
   members added later; non-Clang compilers are untouched.
@@ -364,10 +371,10 @@ PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
   function. Dependencies are flat modules `cmake/deps/<name>.cmake`, each
   defining `forge_load_dependency()` and included by `cmake/Dependencies.cmake`;
   sync retires legacy `cmake/deps/<name>/CMakeLists.txt` files recorded in state.
-  `include(user.cmake OPTIONAL)` sits after `ProjectOptions.cmake` and before
-  version source, CTest, dependencies, workspace, and targets, and sync never
-  records it. `[cmake.variables]` entries are emitted as bracket-literal
-  `set(... PARENT_SCOPE)` lines from `forge_project_options`. Package lookups
+  `cmake/ProjectOptionsUser.cmake` is included after `ProjectOptions.cmake` and
+  carries bracket-literal `set(...)` lines from `[cmake.variables]`.
+  `include(cmake/user.cmake OPTIONAL)` follows it, then
+  `cmake/Diagnostics.cmake`; sync never records `cmake/user.cmake`. Package lookups
   use `GLOBAL` to make imported targets visible to consumers. Workspace targets
   stay in their original build directories. Uppercase dependency aliases use
   hyphen escapes in generated file names so aliases that differ only by case

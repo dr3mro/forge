@@ -234,9 +234,10 @@ scaffold_project() {
   FORGE_MANIFEST_PATH="${dir}/Forge.toml"
   manifest_load
   progress "Generating CMake files and recording sync state"
-  if [[ ! -e "${dir}/user.cmake" && ! -L "${dir}/user.cmake" ]]; then
-    (set -o noclobber; printf '# Set local CMake overrides here. Forge sync preserves this file.\n' > "${dir}/user.cmake") \
-      || die "${EXIT_OTHER}" "could not create user.cmake"
+  mkdir -p "${dir}/cmake" || die "${EXIT_OTHER}" "could not create the cmake directory"
+  if [[ ! -e "${dir}/cmake/user.cmake" && ! -L "${dir}/cmake/user.cmake" ]]; then
+    (set -o noclobber; printf '# Set local CMake overrides here. Forge sync preserves this file.\n' > "${dir}/cmake/user.cmake") \
+      || die "${EXIT_OTHER}" "could not create cmake/user.cmake"
   fi
   cmake_render_all "${dir}" && state_init && state_record_generated \
     || die "${EXIT_OTHER}" "could not generate CMake files or record sync state"
