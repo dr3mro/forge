@@ -72,4 +72,10 @@
 
 - Added `--list` to `cmd_test`: runs `ctest -N` against the resolved profile/sanitizer build directory, honors `FILTER`, and does not execute tests. Dry-run reports the listing plan. Existing "not built" error behavior is unchanged.
 - Catalog, website, `docs/commands.md` and `docs/getting-started.md` aligned; unit and integration regression tests added.
-- Verification: `shellcheck_exit=0`, `1..205`, `bats_exit=0` — 205/205 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..205`, `bats_exit=0` — 205/205 green locally. Committed and pushed as `9322a27`.
+
+### Next task — watch --sanitize integration guard (complete, verified)
+
+- QA probe confirmed `forge watch --sanitize address` rebuilds and restarts inside `target/sanitizers/address/debug` after a source edit, and exits 130 on Ctrl-C.
+- Added an integration regression test in `tests/integration/01_build.bats` covering first run, source-triggered restart, sanitizer build path and interrupt status. No product code change needed.
+- Verification: `shellcheck_exit=0`, `1..206`, `bats_exit=0` — 206/206 green locally. Commit/push pending.

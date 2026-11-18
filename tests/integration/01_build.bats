@@ -733,3 +733,44 @@ PY
   ' target/debug/compile_commands.json
   [ "$status" -eq 0 ]
 }
+
+@test "watch --sanitize rebuilds and restarts in the sanitizer tree" {
+  run_forge --no-color build --sanitize address >/dev/null
+  [ "$status" -eq 0 ]
+
+  run python3 - "$FORGE_BASH" "$FORGE_BIN" "$DIR/watch-sanitize.log" <<'PY'
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+bash, forge, output = sys.argv[1:]
+log = Path(output)
+source = Path("src/main.cpp")
+
+def wait_for(predicate, message):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.1)
+    raise AssertionError(message + "\n" + log.read_text())
+
+with log.open("w") as stream:
+    watcher = subprocess.Popen(
+        [bash, forge, "watch", "--sanitize", "address", "--bin", "hello"],
+        stdout=stream, stderr=subprocess.STDOUT,
+    )
+    try:
+        wait_for(lambda: "Hello from hello" in log.read_text(), "first run")
+        source.write_text(source.read_text() + "\n// touched\n")
+        wait_for(lambda: log.read_text().count("Hello from hello") >= 2, "restart")
+    finally:
+        watcher.send_signal(signal.SIGINT)
+        watcher.wait(timeout=10)
+    assert watcher.returncode == 130, log.read_text()
+assert "sanitizers/address/debug" in log.read_text(), log.read_text()
+PY
+  [ "$status" -eq 0 ]
+}

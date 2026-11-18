@@ -543,6 +543,8 @@ with accurate context. Do this even for small fixes.
 - Resolved: BUG-005 — generated workspace members now inherit the root
   `cppstd` via `workspace_application_cppstd()`; full suite 202/202 green.
   Hosted CI and Linux remain unverified.
+- 2026-11-18 `watch --sanitize` verified by probe and integration test: restarts
+  use the sanitizer tree and Ctrl-C exits 130. Full suite 206/206 green.
 - 2026-11-18 `forge test --list` added (ctest -N, filter-aware, no execution);
   docs aligned; full suite 205/205 green.
 - 2026-11-18 cross-standard guard: a root at C++17 and a member at C++23 keep
