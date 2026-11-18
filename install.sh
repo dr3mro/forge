@@ -182,6 +182,34 @@ forge_install() (
     abort 6 "no Forge installation at $install"
   fi
 
+  if [ "$mode" = --update ] && [ "$source_mode" != directory ]; then
+    step 'Checking the latest Forge release'
+    installed_version=$(awk -F'"' '/^FORGE_VERSION=/{print $2; exit}' "$install/bin/forge")
+    latest_tag=$(
+      git ls-remote --tags --refs "$source" 2>/dev/null \
+        | awk '{ sub(/^refs\/tags\//, "", $2); print $2 }' \
+        | sed 's/^v//' \
+        | grep -E '^[0-9]+([.][0-9]+)*$' \
+        | sort -V \
+        | tail -n 1 || :
+    )
+    if [ -n "$latest_tag" ] && [ "$latest_tag" = "$installed_version" ]; then
+      step_finish
+      printf 'Forge is already up to date (v%s).\n' "$latest_tag"
+      if [ -t 0 ]; then
+        printf 'Reinstall anyway? [y/N] '
+        IFS= read -r answer || answer=
+        case $answer in
+          y|Y|yes|YES|Yes) ;;
+          *) exit 0 ;;
+        esac
+      else
+        exit 0
+      fi
+    fi
+    step_finish
+  fi
+
   step_finish
   if [ "$mode" = --uninstall ]; then
     step 'Removing Forge installation'

@@ -45,6 +45,26 @@ setup() {
   [ ! -L "$LAUNCHER" ]
 }
 
+@test "update reports the current release and skips a same-version refresh" {
+  git -C "$SOURCE" tag v0.1.0
+  run sh "$SOURCE/install.sh" "file://$SOURCE"
+  [ "$status" -eq 0 ]
+  local initial
+  initial=$(git -C "$INSTALLATION" rev-parse HEAD)
+  git -C "$SOURCE" commit -qm newer --allow-empty
+
+  run "$LAUNCHER" update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'already up to date (v0.1.0)'* ]]
+  [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$initial" ]
+
+  git -C "$SOURCE" tag v0.2.0
+  run "$LAUNCHER" update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'already up to date'* ]]
+  [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$(git -C "$SOURCE" rev-parse HEAD)" ]
+}
+
 @test "installer preserves an unrelated launcher and an installation with extra files" {
   mkdir -p "${LAUNCHER%/*}"
   printf 'user data\n' > "$LAUNCHER"

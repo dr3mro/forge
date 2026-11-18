@@ -262,6 +262,14 @@ Git fixture and cover no-argument direct and streamed installs and both
 `--source` modes. The public raw URL returned HTTP 200. The updated script
 must be published before the raw URL serves the new behavior.
 
+`install.sh --update` checks `git ls-remote --tags --refs` for a Git source
+before staging. It strips a leading `v`, selects the highest numeric tag with
+`sort -V`, and compares it with `FORGE_VERSION` read from the installed
+`bin/forge`. On a match it prints "Forge is already up to date (vX.Y.Z)." and
+exits 0 without touching the checkout; an interactive "Reinstall anyway?
+[y/N]" can force it. Directory sources and repos without numeric tags keep
+the old behavior.
+
 The explicit OCI dependency-image follow-up passed actionlint, six workflow
 and website checks, and the local Debug/Release packaging integration test.
 Hosted Docker and runner execution remain unverified.

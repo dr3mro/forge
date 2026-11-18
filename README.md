@@ -180,6 +180,9 @@ curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/instal
 
 Forge installs into `~/.local/share/forge` and creates `~/.local/bin/forge`.
 `forge update` refreshes it from the original directory or Git repository.
+For a Git source, Forge checks the latest release tag first. When it matches
+the installed version, Forge reports that it is up to date and leaves the
+installation untouched; a terminal prompt offers to reinstall anyway.
 `forge uninstall` and `sh uninstall.sh` remove the installation and its
 Bash and Zsh completion files and Forge-managed PATH entries. Existing
 completion files and symlinked startup files are preserved.

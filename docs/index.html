@@ -638,6 +638,9 @@ forge generate lib plugin --shared</pre></div></details>
 <pre>forge workflow init --dry-run</pre></div></details>
 <details data-command="update"><summary><code>forge update</code><span>Refresh Forge from its installation source</span></summary>
 <div class="content">
+<p>For Git sources, Forge checks the repository's latest release tag first.
+When it matches the installed version, Forge reports that it is up to date
+and leaves the installation untouched. A terminal prompt can reinstall anyway.</p>
 <pre>forge update</pre></div></details>
 <details data-command="uninstall"><summary><code>forge uninstall</code><span>Remove the installation and shell completions</span></summary>
 <div class="content">
