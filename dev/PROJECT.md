@@ -543,6 +543,9 @@ with accurate context. Do this even for small fixes.
 - Resolved: BUG-005 — generated workspace members now inherit the root
   `cppstd` via `workspace_application_cppstd()`; full suite 202/202 green.
   Hosted CI and Linux remain unverified.
+- 2026-11-18 cross-standard guard: a root at C++17 and a member at C++23 keep
+  their own standards; a `PARENT_SCOPE` leak hypothesis was disproved by a real
+  build and locked in with an integration test. Full suite 204/204 green.
 - 2026-11-18 follow-up: `generate lib|bin` gained `--cppstd 17|20|23`, overriding
   the inherited root standard; `generate class` rejects it. QA probed 52
   missing-operand CLI invocations with no hangs. Full suite 203/203 green.

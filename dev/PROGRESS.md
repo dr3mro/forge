@@ -55,4 +55,10 @@
 - Added `--cppstd 17|20|23` to `generate lib|bin`; explicit value overrides the inherited root standard. `generate class` rejects it. Invalid values exit 2 before any files are written.
 - Catalog, website and `docs/commands.md` aligned; regression test added in `tests/unit/04_project.bats`.
 - QA reliability probe: 52 missing-operand CLI invocations across all flags, zero hangs (BUG-004 pattern confirmed isolated).
-- Verification: `shellcheck_exit=0`, `1..203`, `bats_exit=0` — 203/203 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..203`, `bats_exit=0` — 203/203 green locally. Committed and pushed as `53b9ab5`.
+
+### Next task — cross-standard workspace regression guard (complete, verified)
+
+- Hypothesis: a member's `forge_project_options()` (`PARENT_SCOPE`) might override the root C++ standard for root targets. Disproved empirically: root 17 / member 23 produced `-std=c++17` for root sources and `-std=c++23` for member sources. The workspace helper's function scope confines the parent-scope write.
+- Added an integration test in `tests/integration/01_build.bats` asserting both standards in `compile_commands.json`, so the new per-member override cannot silently regress.
+- Verification: `shellcheck_exit=0`, `1..204`, `bats_exit=0` — 204/204 green locally. Commit/push pending.

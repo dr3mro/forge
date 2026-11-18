@@ -708,3 +708,19 @@ with log.open("w") as stream:
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "workspace members keep a different C++ standard than the root" {
+  cd "${DIR}"
+  run_forge --no-color new root --defaults --cppstd 17 >/dev/null
+  [ "$status" -eq 0 ]
+  cd root
+  run_forge --no-color generate lib fast --cppstd 23 >/dev/null
+  [ "$status" -eq 0 ]
+  run_forge --no-color build >/dev/null
+  [ "$status" -eq 0 ]
+  run jq -e '
+    ([.[] | select(.file | endswith("root/src/main.cpp")) | .command | contains("-std=c++17")] | any)
+    and ([.[] | select(.file | endswith("libs/fast/src/fast.cpp")) | .command | contains("-std=c++23")] | any)
+  ' target/debug/compile_commands.json
+  [ "$status" -eq 0 ]
+}
