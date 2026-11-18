@@ -806,3 +806,20 @@ assert "sanitizers/address/debug" in log.read_text(), log.read_text()
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "leaks reports a clean macOS debug application" {
+  [[ "$(uname -s)" == Darwin ]] || skip "leaks is macOS-only"
+  command -v leaks >/dev/null || skip "leaks not installed"
+  run_forge --no-color leaks --bin hello -- --version
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0.1.0"* ]]
+  [[ "$output" == *"no leaks detected"* ]]
+}
+
+@test "leaks uses LeakSanitizer on Linux" {
+  [[ "$(uname -s)" == Linux ]] || skip "LeakSanitizer backend is Linux-only"
+  run_forge --no-color leaks --bin hello
+  [ "$status" -eq 0 ]
+  [ -f target/sanitizers/leak/debug/CMakeCache.txt ]
+  [[ "$output" == *"no leaks detected"* ]]
+}

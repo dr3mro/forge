@@ -147,3 +147,13 @@
 - Verification: local ShellCheck exit 0, Bats 211/211; hosted run `44398310259`
   succeeded on both macOS and Ubuntu (`gh api .../runs/... --jq '.conclusion'`
   returned `success`). Hosted CI is now verified locally **and** remotely.
+
+### New feature — forge leaks (complete, local verification)
+
+- Product decisions (approved): Linux backend = LeakSanitizer via the existing
+  isolated sanitizer build; leaks found exits 5; implied debug build; macOS
+  uses the normal entitled debug binary with `leaks -quiet -atExit --`.
+- Added `lib/commands/leaks.sh`, catalog/website/README/docs/getting-started
+  entries, unit validation/dry-run tests and macOS/Linux integration tests.
+- Verification: ShellCheck exit 0; full Bats suite 214/214 green locally,
+  including a real macOS `leaks` run on a fresh scaffold. Hosted CI pending.

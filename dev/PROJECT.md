@@ -1,3 +1,6 @@
+  New feature `forge leaks`: implied Debug build; macOS native `leaks` on the
+  entitled binary, Linux LSan in an isolated tree; leaks found exits 5. Local
+  verification 214/214 Bats green, ShellCheck clean. Hosted CI pending.
 ---
 name: forge-project-memory
 description: Maintain Forge, the Bash-based C++ orchestration CLI in /Users/amr/Repos/projector. Use for changes to its CLI, CMake and dependency integration, scaffolding, installer, tests, or project documentation.

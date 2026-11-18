@@ -16,6 +16,7 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `run [--build] [--debug\|--release] [--bin N] [--sanitize NAME] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
 | `watch [--bin NAME] [--debug|--release] [--sanitize NAME] [-- ARGS]` | Rebuild and run when workspace inputs change |
 | `test [FILTER] [--repeat N] [--sanitize NAME] [--list]` | CTest; `--sanitize` uses an isolated build dir, `--list` enumerates tests without running them |
+| `leaks [--bin NAME] [-- ARGS]` | Build debug and check the selected executable for leaks |
 | `clean [--profile N] [--all]` | Delete only validated Forge-owned dirs under `target/`; `--all` confirms |
 | `add NAME[/VERSION] --conan [--target T]` | Discover Conan CMake metadata, link a local target, and sync |
 | `add PORT --vcpkg [--target T]` | Add a vcpkg port, link a local target, and sync |
@@ -48,6 +49,13 @@ application project's name. Generated members also inherit the root project's
 from `new --lib` and `init --lib` use the same template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
 to choose library linkage. New root projects automatically receive GitHub
 Actions for Debug and Release on Windows, Linux, and macOS.
+
+`forge leaks` always uses a Debug build. On macOS it runs `leaks -quiet
+-atExit --` against the normal, entitled debug executable; on Linux it builds
+with LeakSanitizer in `target/sanitizers/leak/debug` and runs that executable.
+Pass `--bin NAME` to select an executable and put program arguments after `--`.
+Exit 0 means no leaks, exit 5 means leaks were detected (or the instrumented
+program failed), and exit 3 means a required tool is unavailable.
 
 Use `--clean-first` to ask CMake to clean build outputs before compiling,
 without changing the build directory or deleting user-owned files.

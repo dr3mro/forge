@@ -318,6 +318,20 @@ it in the same command. `watch --sanitize` keeps every restart instrumented.
 C and C++ sources and shared libraries are instrumented, including in mixed
 workspaces.
 
+## Leak checks
+
+`forge leaks` builds Debug and inspects the selected application for leaks:
+
+```sh
+forge leaks
+forge leaks --bin hello -- --version
+```
+
+macOS uses the native `leaks -quiet -atExit --` tool on the entitled Debug
+build. Linux uses an isolated LeakSanitizer build, so the normal Debug tree is
+left untouched. Exit 0 means no leaks; exit 5 means a leak report or failed
+check, matching the build/test failure code. Program arguments go after `--`.
+
 ## Watch mode
 
 `forge watch` builds and runs the selected application. It stops the old

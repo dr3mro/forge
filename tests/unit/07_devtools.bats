@@ -179,7 +179,7 @@ teardown() {
 
 @test "development commands report help and reject malformed options" {
   local command
-  for command in build run test fmt metadata update uninstall; do
+  for command in build run test leaks fmt metadata update uninstall; do
     run_forge "$command" --help
     [ "$status" -eq 0 ]
     run_forge "$command" --invalid
@@ -207,6 +207,18 @@ teardown() {
   [ "$status" -eq 2 ]
   run_forge build --target=invalid-target
   [ "$status" -eq 2 ]
+}
+
+@test "leaks validates options and previews the platform plan" {
+  run_forge --no-color leaks --bogus
+  [ "$status" -eq 2 ]
+  run_forge --no-color leaks --bin invalid-name
+  [ "$status" -eq 2 ]
+  run_forge --no-color leaks extra
+  [ "$status" -eq 2 ]
+  run_forge --dry-run leaks --bin app -- --version
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would build debug and check app for leaks"* ]]
 }
 
 @test "test reports a profile-aware repair hint when the profile is not built" {

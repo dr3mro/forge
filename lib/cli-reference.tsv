@@ -16,6 +16,8 @@ command	watch	watch [OPTIONS] [-- ARGS]	Build and run again when workspace input
 example	watch	forge watch --bin hello -- --version
 command	test	test [FILTER] [OPTIONS]	Run CTest with a filter, repeat count, or sanitizer
 example	test	forge test smoke --repeat 3
+command	leaks	leaks [OPTIONS] [-- ARGS]	Build debug and check an executable for leaks
+example	leaks	forge leaks --bin hello -- --version
 command	clean	clean [OPTIONS]	Remove Forge-owned build directories
 example	clean	forge clean --profile release --dry-run
 command	add	add NAME[/VERSION] [OPTIONS]	Declare a dependency and offer to sync the workspace
@@ -107,6 +109,8 @@ option	watch	--	Forward remaining arguments to the executable
 option	test	--repeat N	Repeat tests until failure, up to N times
 option	test	--allow-no-tests	Allow an empty CTest selection
 option	test	--list	List CTest tests without running them
+option	leaks	--bin NAME	Select a declared executable
+option	leaks	--	Forward remaining arguments to the executable
 option	test	--release	Use the release preset
 option	test	--sanitize NAME	Build and test in an isolated sanitizer directory	address undefined leak thread asan ubsan lsan tsan
 option	clean	--profile NAME	Clean the given build profile	debug release
