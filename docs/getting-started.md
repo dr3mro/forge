@@ -71,6 +71,7 @@ forge run                # use the manifest's default profile
 forge run --build --debug --bin hello  # build and run the selected executable
 forge run -- arg1 arg2   # arguments after -- are forwarded exactly
 forge test               # CTest with --output-on-failure
+forge test --list        # list registered tests without running them
 ```
 
 Debug and Release build in `target/debug/` and `target/release/`. Forge

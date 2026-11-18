@@ -24,6 +24,15 @@ teardown() {
   [[ "$output" == *"build ok"* ]]
   [ -f compile_commands.json ]
 
+  run_forge --dry-run test --list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would list ctest tests"* ]]
+
+  run_forge --no-color test --list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Total Tests"* ]]
+  [[ "$output" != *"tests ok"* ]]
+
   run_forge --no-color test
   [ "$status" -eq 0 ]
   [[ "$output" == *"tests ok"* ]]

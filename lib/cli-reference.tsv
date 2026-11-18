@@ -105,6 +105,7 @@ option	watch	--sanitize NAME	Watch a sanitizer-instrumented build	address undefi
 option	watch	--	Forward remaining arguments to the executable
 option	test	--repeat N	Repeat tests until failure, up to N times
 option	test	--allow-no-tests	Allow an empty CTest selection
+option	test	--list	List CTest tests without running them
 option	test	--release	Use the release preset
 option	test	--sanitize NAME	Build and test in an isolated sanitizer directory	address undefined leak thread asan ubsan lsan tsan
 option	clean	--profile NAME	Clean the given build profile	debug release

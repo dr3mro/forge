@@ -67,3 +67,9 @@
 
 - Added `--cppstd` to the create section, sanitizer build/run/test examples to the build section, and member standard inheritance/override to the workspace paragraph in `docs/getting-started.md`.
 - Verified the website/install consistency tests (2/2) since they check `docs/getting-started.md` alongside README and the website. No code changes.
+
+### Next task — `forge test --list` (complete, verified)
+
+- Added `--list` to `cmd_test`: runs `ctest -N` against the resolved profile/sanitizer build directory, honors `FILTER`, and does not execute tests. Dry-run reports the listing plan. Existing "not built" error behavior is unchanged.
+- Catalog, website, `docs/commands.md` and `docs/getting-started.md` aligned; unit and integration regression tests added.
+- Verification: `shellcheck_exit=0`, `1..205`, `bats_exit=0` — 205/205 green locally. Commit/push pending.

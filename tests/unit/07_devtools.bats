@@ -189,6 +189,12 @@ teardown() {
   [ "$status" -eq 2 ]
 }
 
+@test "test --list reports a clear error before the project is built" {
+  run_forge --no-color test --list
+  [ "$status" -eq 5 ]
+  [[ "$output" == *"project is not built"* ]]
+}
+
 @test "test validates sanitizer and repeat settings before building" {
   local sanitizer
   for sanitizer in asan ubsan lsan tsan; do

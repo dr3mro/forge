@@ -15,7 +15,7 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `build --debug-target T` | Build an executable with the debug preset and link it to `target/debug-T-launch` for LLDB |
 | `run [--build] [--debug\|--release] [--bin N] [--sanitize NAME] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
 | `watch [--bin NAME] [--debug|--release] [--sanitize NAME] [-- ARGS]` | Rebuild and run when workspace inputs change |
-| `test [FILTER] [--repeat N] [--sanitize NAME]` | CTest; `--sanitize` uses an isolated build dir |
+| `test [FILTER] [--repeat N] [--sanitize NAME] [--list]` | CTest; `--sanitize` uses an isolated build dir, `--list` enumerates tests without running them |
 | `clean [--profile N] [--all]` | Delete only validated Forge-owned dirs under `target/`; `--all` confirms |
 | `add NAME[/VERSION] --conan [--target T]` | Discover Conan CMake metadata, link a local target, and sync |
 | `add PORT --vcpkg [--target T]` | Add a vcpkg port, link a local target, and sync |

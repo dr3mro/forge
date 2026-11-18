@@ -4,12 +4,13 @@
 
 # Build and run the selected CTest tests.
 cmd_test() {
-  local filter="" repeat=1 allow_no_tests=0 release=0 sanitize="" positional=0
+  local filter="" repeat=1 allow_no_tests=0 release=0 sanitize="" list=0 positional=0
   while (( $# > 0 )); do
     case "$1" in
       --repeat) repeat="${2:-}"; [[ "${repeat}" =~ ^[0-9]+$ ]] || die "${EXIT_USAGE}" "--repeat requires a positive integer"; shift 2 ;;
       --repeat=*) repeat="${1#*=}"; [[ "${repeat}" =~ ^[0-9]+$ ]] || die "${EXIT_USAGE}" "--repeat requires a positive integer"; shift ;;
       --allow-no-tests) allow_no_tests=1; shift ;;
+      --list) list=1; shift ;;
       --release) release=1; shift ;;
       --sanitize) [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "$1 requires a value"; sanitize="$2"; shift 2 ;;
       --sanitize=*) sanitize="${1#*=}"; shift ;;
@@ -56,16 +57,25 @@ cmd_test() {
     || die "${EXIT_BUILD}" "project is not built for '${profile}' (run 'forge build')"
 
   if (( FORGE_DRY_RUN )); then
-    status "dry-run: would run ctest in ${build_dir} (filter: ${filter:-all})"
+    if (( list )); then
+      status "dry-run: would list ctest tests in ${build_dir} (filter: ${filter:-all})"
+    else
+      status "dry-run: would run ctest in ${build_dir} (filter: ${filter:-all})"
+    fi
     return "${EXIT_OK}"
   fi
 
-  local -a cargs=(--test-dir "${build_dir}" --output-on-failure)
+  local -a cargs=(--test-dir "${build_dir}")
+  if (( list )); then
+    cargs+=(-N)
+  else
+    cargs+=(--output-on-failure)
+    (( repeat > 1 )) && cargs+=(--repeat "until-fail:${repeat}")
+  fi
   [[ -n "${filter}" ]] && cargs+=(-R "${filter}")
-  (( repeat > 1 )) && cargs+=(--repeat "until-fail:${repeat}")
 
   local output rc=0
-  progress "Running CTest"
+  if (( list )); then progress "Listing CTest tests"; else progress "Running CTest"; fi
   output=$(ctest "${cargs[@]}" 2>&1) || rc=$?
   printf '%s\n' "${output}"
 
@@ -79,5 +89,6 @@ cmd_test() {
   fi
   (( rc == 0 )) || die "${EXIT_BUILD}" "tests failed"
   progress_finish
+  if (( list )); then return "${EXIT_OK}"; fi
   out "tests ok"
 }
