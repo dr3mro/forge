@@ -86,8 +86,13 @@ cmd_add() {
     port="${name}"
     name="${name//-/_}"
     [[ "${name}" != [0-9]* ]] || name="vcpkg_${name}"
+    case "${port}" in
+      fmt) cmake_target="${cmake_target:-fmt::fmt}" ;;
+      sqlite3)
+        cmake_package="${cmake_package:-unofficial-sqlite3}"
+        cmake_target="${cmake_target:-unofficial::sqlite3::sqlite3}" ;;
+    esac
     cmake_package="${cmake_package:-${port}}"
-    if [[ "${port}" == fmt ]]; then cmake_target="${cmake_target:-fmt::fmt}"; fi
   fi
   [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] \
     || die "${EXIT_USAGE}" "invalid dependency name: ${name}"
@@ -95,6 +100,9 @@ cmd_add() {
 
   manifest_load
   deps_check_collisions || die "${EXIT_DEP}" "dependency collisions detected"
+  if [[ "${source}" == vcpkg ]] && vcpkg_target_is_local "${cmake_target}" "${FORGE_MANIFEST_JSON}"; then
+    die "${EXIT_USAGE}" "--cmake-target '${cmake_target}' names a project target; use the imported target exported by the vcpkg port"
+  fi
   if [[ "${shortcut}" == conan && -z "${ref}" ]]; then
     ref=$(mq --arg name "${name}" '(.dependencies[$name] // {}) | select(.source == "conan") | .ref // empty')
     if [[ -n "${ref}" && "${ref}" != "${conan_name}/"* ]]; then
@@ -135,7 +143,7 @@ cmd_add() {
       manifest_link_existing_dependency "${FORGE_MANIFEST_PATH}" "${target}" "${name}"
       out "linked '${name}' to '${target}'"
     fi
-    sync_after_manifest_edit
+    add_sync_dependency "${source}"
     return $?
   fi
 
@@ -188,18 +196,39 @@ cmd_add() {
   sync_check_destinations "${FORGE_ROOT}"
   progress "Updating Forge.toml"
   manifest_add_dependency "${FORGE_MANIFEST_PATH}" "${name}" "${source}" "${fields[@]}"
+  progress_finish
 
   out "added dependency '${name}' to ${FORGE_MANIFEST_PATH}"
+  add_sync_dependency "${source}"
+}
+
+# Apply workspace changes before locking, so conflicts leave the prior lock intact.
+add_sync_dependency() {
+  local source="$1"
   sync_after_manifest_edit || {
     local sync_status=$?
     fail "manifest edit saved; resolve the sync issue and run 'forge sync --apply'"
     return "${sync_status}"
   }
   if [[ "${source}" == conan ]]; then
-    status "Run 'forge deps lock' from ${FORGE_ROOT} before building."
+    add_refresh_conan_lock || {
+      local lock_status=$?
+      fail "manifest edit and sync saved; run 'forge deps lock' from the workspace root"
+      return "${lock_status}"
+    }
   fi
 }
 
+
+# Keep lock failures separate from the manifest/sync transaction.
+add_refresh_conan_lock() (
+  # shellcheck disable=SC2034  # read by forge_cleanup_tmpdirs in the EXIT trap
+  FORGE_TMP_DIRS=()
+  trap forge_cleanup_tmpdirs EXIT
+  manifest_load
+  state_load
+  if conan_lock_stale; then deps_lock; fi
+)
 
 # Select the sole local application/library, or a specifically named local target.
 add_select_target() {

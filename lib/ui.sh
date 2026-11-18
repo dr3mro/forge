@@ -5,7 +5,7 @@
 # Outputs: sets FORGE_COLOR (0/1). No other side effects.
 #
 # Precedence (highest first): --no-color > NO_COLOR > FORCE_COLOR > TTY.
-# Plain ASCII when not a TTY. Never emits emoji or box-drawing characters.
+# Progress symbols remain visible when ANSI styling is disabled.
 
 FORGE_COLOR=0
 

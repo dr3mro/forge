@@ -69,7 +69,7 @@ teardown() {
   run --separate-stderr "${FORGE_BASH}" "${FORGE_BIN}" --no-color sync --apply
   [ "$status" -eq 0 ]
   [ "$output" = "nothing to sync" ]
-  [[ "$stderr" == *"[ ] Checking workspace sync state"* ]]
+  [[ "$stderr" == *"[✓] Checking workspace sync state"* ]]
 
   cp CMakeLists.txt cmake.before
   cp .forge/state.json state.before
@@ -88,6 +88,7 @@ teardown() {
   run_forge --no-color add logger --source path --path vendor/logger --cmake-target logger
   [ "$status" -eq 6 ]
   [[ "$output" == *"added dependency 'logger'"*conflict* ]]
+  [[ "$output" == *"[✓] Checking workspace sync state"*"[✗] Applying workspace changes"* ]]
   [ -f .forge/proposals/cmake_Dependencies.cmake.patch ]
   grep -Fq '[dependencies.logger]' Forge.toml
   cmp local.before cmake/Dependencies.cmake
@@ -100,4 +101,42 @@ teardown() {
   [[ "$output" == *"missing current or base copy"* ]]
   [ -f .forge/proposals/cmake_Testing.cmake.patch ]
   [ ! -e cmake/Testing.cmake ]
+}
+
+@test "sync retires an unmodified empty legacy Conan recipe" {
+  sed '/^{{.*}}$/d' "$FORGE_PROJECT_DIR/templates/base/conanfile.txt.tpl" > conanfile.txt
+  cp conanfile.txt .forge/base/conanfile.txt
+  local digest
+  digest=$(python3 -c 'from hashlib import sha256; print(sha256(open("conanfile.txt", "rb").read()).hexdigest())')
+  jq --arg digest "$digest" '.files["conanfile.txt"] = $digest' .forge/state.json > state.next
+  mv state.next .forge/state.json
+
+  run_forge sync --diff
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Conan recipe no longer required'* ]]
+  [ -f conanfile.txt ]
+  run_forge sync --apply --yes
+  [ "$status" -eq 0 ]
+  [ ! -e conanfile.txt ]
+  [ ! -e .forge/base/conanfile.txt ]
+  [ -f "$(find .forge/backups -name 'conanfile.txt.*' -print -quit)" ]
+  run_forge sync --check
+  [ "$status" -eq 0 ]
+}
+
+@test "an existing user Conan recipe survives init and conflicts with generated content" {
+  mkdir "$BATS_TEST_TMPDIR/existing"
+  cd "$BATS_TEST_TMPDIR/existing"
+  printf '[requires]\nlocal-package/1.0\n' > conanfile.txt
+  cp conanfile.txt original.txt
+  run_forge init --defaults --name existing
+  [ "$status" -eq 0 ]
+  cmp original.txt conanfile.txt
+  jq -e '.files | has("conanfile.txt") | not' .forge/state.json
+  run_forge add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  [ "$status" -eq 6 ]
+  [[ "$output" == *"user-owned recipe"* ]]
+  cmp original.txt conanfile.txt
+  grep -Fxq 'fmt/12.1.0' .forge/proposals/conanfile.txt.patch
+  [ ! -e conan.lock ]
 }

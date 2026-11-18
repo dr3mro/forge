@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "template_id": "base",
+  "template_version": "1.0.0",
+  "manifest": "ca724e535890007a39802dce2c7030e21d8046752dde7ff6da0ae64c1ec784e9",
+  "files": {
+    "CMakeLists.txt": "496a39bd3b6ed1ed76c4bda2b9dc7adb67707e95c860f68095ed49d1afa09fa4",
+    "CMakePresets.json": "368040e6696a4c6982340c5ba10b22a777eb179d0ee1e3bb81ce5eaf161843c9",
+    "conanfile.txt": "0bf1530c59eaf916049d9e6c53bfd45a8433ef8090ea6fbf4ce934e0b410f5ab",
+    "cmake/Dependencies.cmake": "cc3cb6fb1c385ce5b202fd28475e0ce02f127658d05689c227fb7d1527a752c2",
+    "cmake/Targets.cmake": "9dfdcf1993f6fae4ac99760d5e58e80d140831fa3404057e87ba5444a8e50058",
+    "cmake/Testing.cmake": "66f03475a8760b4d62155918005cdac2e1ee4752582d4c59da6364bec4eb2730"
+  },
+  "conan_lock_manifest_sha": "f06a76aa1d9c3609ad6a760d8d45d9b1672e4726eb26d64cac7803cd4c1de009"
+}

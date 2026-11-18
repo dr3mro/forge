@@ -1,13 +1,25 @@
 # shellcheck shell=bash
 # vcpkg workspace manifest and CMake integration.
 
+# An imported vcpkg target cannot also be defined by the consuming project.
+vcpkg_target_is_local() {
+  jq -e --arg name "$1" 'any(((.bin // []) + (.lib // []) + (.test // []))[]; .name == $name)' \
+    <<< "$2" >/dev/null
+}
+
 # Build a deterministic vcpkg manifest for the workspace root.
 vcpkg_workspace_manifest() {
-  local node json records baseline
+  local node json records baseline imported
   workspace_collect_graph "${FORGE_ROOT}" || return 1
   records=$(
     for node in "${FORGE_GRAPH_NODES[@]}"; do
       json=$(manifest_to_json "${node}/Forge.toml") || exit 1
+      while IFS= read -r imported; do
+        if vcpkg_target_is_local "${imported}" "${json}"; then
+          fail "${node}/Forge.toml: vcpkg cmake_target '${imported}' names a project target"
+          exit 1
+        fi
+      done < <(jq -r '(.dependencies // {})[] | select(.source == "vcpkg") | .cmake_target' <<< "${json}")
       jq -c '(.dependencies // {})[] | select(.source == "vcpkg")
         | {port, version, features: ((.features // []) | unique), default_features: (.default_features != false)}' \
         <<< "${json}" || exit 1

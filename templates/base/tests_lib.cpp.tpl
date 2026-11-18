@@ -1,10 +1,9 @@
-#include <cassert>
 #include <type_traits>
 #include <utility>
 
 #include "{{NAME}}.hpp"
 
-using Library = {{NAMESPACE}}::{{NAME}}_library;
+using Library = {{NAMESPACE}}::{{NAME}};
 static_assert(std::is_default_constructible_v<Library>);
 static_assert(std::is_copy_constructible_v<Library>);
 static_assert(std::is_nothrow_move_constructible_v<Library>);
@@ -18,7 +17,5 @@ int main() {
   Library moved(std::move(copy));
   copy = original;
   moved = std::move(copy);
-  assert(Library::add(2, 3) == 5);
-  assert({{NAME}}::add(2, 3) == 5);
   return 0;
 }

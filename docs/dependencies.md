@@ -49,7 +49,11 @@ metadata. Discovery requires an available binary. Supply both
 when Conan cannot provide metadata. `--offline` limits discovery to the
 local Conan cache.
 
-`forge add fmt --vcpkg` uses the installed vcpkg registry checkout. For example,
+`forge add fmt --vcpkg` uses the installed vcpkg registry checkout.
+`forge add sqlite3 --vcpkg` uses package `unofficial-sqlite3` and imported
+target `unofficial::sqlite3::sqlite3`. Use `--target` to choose a consuming
+project target and `--cmake-target` to name the dependency's imported target.
+For another port,
 use `forge add zlib --vcpkg --cmake-package ZLIB --cmake-target ZLIB::ZLIB`
 for a port whose CMake package name differs from the port name. Set
 `VCPKG_ROOT` to a bootstrapped checkout before building. Forge aggregates
@@ -73,22 +77,30 @@ forge add catch2 --source git --url https://github.com/catchorg/Catch2.git \
   --rev <full-sha> --cmake-target Catch2::Catch2WithMain
 forge add logger --source path --path libs/logger --cmake-target logger
 
-forge deps lock                  # Conan lockfile
 forge build                      # Conan install, then CMake configure + FetchContent
 ```
 
 `add` edits the selected manifest and applies a three-way sync. On a merge
-conflict, Forge leaves a proposal and exits with code 6. After adding a Conan
-dependency, refresh the lock with `forge deps lock` before rebuilding.
+conflict, Forge leaves a proposal and exits with code 6. After a successful
+sync, adding a Conan dependency refreshes the workspace-root lock. If Conan
+fails, the manifest and sync changes remain saved and the prior lock stays
+in place. Run `forge deps lock` after resolving the error or after editing
+Conan dependency settings directly.
 
 ## Conan integration
 
-Forge checks for Conan 2, renders a reviewable `conanfile.txt` (CMakeDeps +
-CMakeToolchain + `cmake_layout`) and runs `conan install` with explicit build
-type and output folder before configuring. The lockfile is created from a
-freshly rendered recipe so the documented `add → deps lock → sync` order works.
+Forge generates `conanfile.txt` during sync when a project declares a Conan
+dependency. The workspace root also gets a recipe when any member uses Conan.
+When the final Conan dependency is removed, sync backs up and removes the
+unmodified generated recipe. Locally edited recipes are preserved as user-owned
+files.
+
+Forge checks for Conan 2 and runs `conan install` with CMakeDeps and
+CMakeToolchain using an explicit build type and output folder before
+configuring. An explicit `forge deps lock` renders a fresh recipe to resolve
+direct manifest edits.
 Locks are keyed to the Conan-relevant manifest data, not to `conanfile.txt`
-mtimes. Because build directories are fingerprinted, Forge configures via its
+mtimes. Forge reuses the profile build directory and configures through its
 own preset and passes Conan's discovered `conan_toolchain.cmake` with
 `-DCMAKE_TOOLCHAIN_FILE` (see `docs/decisions/0003-conan-presets.md`).
 
@@ -110,6 +122,11 @@ arrays) or unquoted CMake strings. Manifest parsing never executes project
 scripts. Conan recipes and CMake dependencies can run third-party code — a
 warning is shown when the first dependency is added. Secrets are redacted in
 `--verbose` logs.
+
+Forge uses its own CMake presets and passes Conan's toolchain to CMake
+directly. It disables Conan's root preset generation. Builds remove old
+fingerprinted includes from Conan-marked `CMakeUserPresets.json` files to
+avoid duplicate preset names and retain unrelated includes.
 
 ## Editing package settings
 

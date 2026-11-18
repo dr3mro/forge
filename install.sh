@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install Forge from a Git repository, or manage a checkout created by this script.
+# Install Forge from a Git repository or local source directory.
 # Keep every operation inside the function so a truncated curl stream cannot run it.
 forge_install() (
   set -eu
@@ -8,8 +8,27 @@ forge_install() (
   abort() {
     code=$1
     shift
+    step_finish "$code"
     printf 'forge: %s\n' "$*" >&2
     exit "$code"
+  }
+
+  current_step=''
+  step() { current_step=$*; }
+
+  step_finish() {
+    [ -n "$current_step" ] || return 0
+    if [ "${1:-0}" -eq 0 ]; then
+      mark='✓' color=32
+    else
+      mark='✗' color=31
+    fi
+    if [ -z "${NO_COLOR+x}" ] && { [ "${FORCE_COLOR:-0}" = 1 ] || [ -t 2 ]; }; then
+      printf '[\033[%sm%s\033[0m] %s\n' "$color" "$mark" "$current_step" >&2
+    else
+      printf '[%s] %s\n' "$mark" "$current_step" >&2
+    fi
+    current_step=''
   }
 
   case ${HOME:-} in
@@ -23,30 +42,24 @@ forge_install() (
   entry="$install/bin/forge"
   lock="$share/.forge-install-lock"
 
-  step() { printf '[ ] %s\n' "$*" >&2; }
   bash_completion="${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion}/completions/forge"
   zsh_completion="${ZDOTDIR:-$HOME}/.zfunc/_forge"
 
   mode=${1:-}
   source_mode=git
-  source=''
+  source=https://github.com/dr3mro/forge.git
+  usage='usage: sh install.sh [--source DIR_OR_REPO | --repo REPO]'
   case $mode in
     --update|--uninstall) [ "$#" -eq 1 ] || abort 2 "unexpected arguments for $mode" ;;
     --source|--repo)
       [ "$#" -eq 2 ] && [ -n "$2" ] || abort 2 "$mode requires a value"
       source=$2
-      if [ "$mode" = --source ]; then source_mode=directory; fi ;;
-    '')
-      if [ -f "$0" ] && [ -f "$(dirname "$0")/lib/_load.sh" ]; then
+      if [ "$mode" = --source ] && [ -d "$source" ]; then
         source_mode=directory
-        source=$(dirname "$0")
-      elif [ -n "${FORGE_REPOSITORY:-}" ]; then
-        source=$FORGE_REPOSITORY
-      else
-        abort 2 'usage: sh install.sh [--source DIR | --repo URL]; piped install requires --repo or FORGE_REPOSITORY'
       fi ;;
+    '') [ "$#" -eq 0 ] || abort 2 "$usage" ;;
     -*) abort 2 "unknown option: $mode" ;;
-    *) [ "$#" -eq 1 ] || abort 2 'usage: sh install.sh [--source DIR | --repo URL]'; source=$mode ;;
+    *) [ "$#" -eq 1 ] || abort 2 "$usage"; source=$mode ;;
   esac
   if [ "$source_mode" = directory ]; then
     source=$(CDPATH='' cd -- "$source" && pwd -P) || abort 2 'source directory does not exist'
@@ -68,7 +81,7 @@ forge_install() (
     fi
   }
 
-  # Register completions for interactive shells even without a completion framework.
+  # Add or remove one exact startup line, preserving unrelated shell settings.
   shell_startup() {
     startup=$1
     loader=$2
@@ -81,7 +94,7 @@ forge_install() (
         mv -f "$tmp" "$startup"
       else
         rm -f "$tmp"
-        abort 1 "could not remove completion registration from $startup"
+        abort 1 "could not remove Forge registration from $startup"
       fi
     elif ! { [ -f "$startup" ] && grep -Fqx -- "$loader" "$startup"; }; then
       printf '\n%s\n' "$loader" >> "$startup"
@@ -96,6 +109,26 @@ forge_install() (
     fi
     if [ "$mode" = --uninstall ] || [ "$(readlink "$zsh_completion" 2>/dev/null || :)" = "$install/templates/completions/_forge" ]; then
       shell_startup "${ZDOTDIR:-$HOME}/.zshrc" 'if [[ -r "${ZDOTDIR:-$HOME}/.zfunc/_forge" ]]; then fpath=("${ZDOTDIR:-$HOME}/.zfunc" "${fpath[@]}"); autoload -Uz compinit _forge; (( $+functions[compdef] )) || compinit; compdef _forge forge; fi # Forge completion'
+    fi
+  }
+
+  shell_path() {
+    path_loader='case ":${PATH:-}:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin${PATH:+:$PATH}" ;; esac # Forge PATH'
+    shell_startup "$HOME/.bashrc" "$path_loader"
+    shell_startup "${ZDOTDIR:-$HOME}/.zshrc" "$path_loader"
+    if [ "$mode" = --uninstall ]; then
+      for profile in .bash_profile .bash_login .profile; do
+        shell_startup "$HOME/$profile" "$path_loader"
+      done
+    else
+      # Bash login shells read only the first available login profile.
+      for profile in .bash_profile .bash_login .profile; do
+        if [ -e "$HOME/$profile" ] || [ -L "$HOME/$profile" ]; then
+          shell_startup "$HOME/$profile" "$path_loader"
+          return
+        fi
+      done
+      shell_startup "$HOME/.bash_profile" "$path_loader"
     fi
   }
 
@@ -116,7 +149,7 @@ forge_install() (
   }
   committed=0
   created_link=0
-  trap cleanup EXIT
+  trap 'step_finish "$?"; cleanup' EXIT
   trap 'exit 1' HUP INT TERM
 
   owned_link=0
@@ -149,7 +182,9 @@ forge_install() (
     abort 6 "no Forge installation at $install"
   fi
 
+  step_finish
   if [ "$mode" = --uninstall ]; then
+    step 'Removing Forge installation'
     if [ -d "$install" ]; then
       mv "$install" "$lock/previous" || abort 1 'could not move the installed checkout'
     fi
@@ -157,8 +192,11 @@ forge_install() (
       rm "$link" || abort 1 "could not unlink $link"
     fi
     committed=1
-    step 'Removing Bash and Zsh completions'
+    step_finish
+    step 'Removing Bash and Zsh PATH and completion entries'
     shell_completions
+    shell_path
+    step_finish
     printf 'Forge uninstalled.\n'
     exit 0
   fi
@@ -169,6 +207,9 @@ forge_install() (
     for item in bin lib templates install.sh uninstall.sh tools.versions; do
       cp -R "$source/$item" "$lock/incoming/" || abort 4 'could not copy Forge sources'
     done
+    if [ -f "$source/LICENSE" ]; then
+      cp "$source/LICENSE" "$lock/incoming/" || abort 4 'could not copy the source license'
+    fi
     git -C "$lock/incoming" init -q
     git -C "$lock/incoming" add -f .
     tree=$(git -C "$lock/incoming" write-tree)
@@ -182,6 +223,7 @@ forge_install() (
     && [ -f "$lock/incoming/install.sh" ] && [ -f "$lock/incoming/uninstall.sh" ] \
     || abort 4 'the repository does not contain an installable Forge checkout'
   : > "$lock/incoming/.git/forge-install"
+  step_finish
 
   step 'Publishing Forge installation'
   if [ "$owned_link" -eq 0 ]; then
@@ -193,10 +235,13 @@ forge_install() (
   fi
   mv "$lock/incoming" "$install" || abort 1 'could not publish Forge'
   committed=1
-  step 'Installing Bash and Zsh completions'
+  step_finish
+  step 'Configuring Bash and Zsh PATH and completions'
   shell_completions
+  shell_path
+  step_finish
   printf 'Forge installed at %s\n' "$entry"
-  printf 'Add %s to PATH if needed.\n' "$bin"
+  printf 'Start a new shell to load PATH and shell completions.\n'
 )
 
 forge_install "$@"

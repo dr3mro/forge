@@ -9,7 +9,9 @@ load ../test_helper
   [ -f hello/Forge.toml ]
   [ -f hello/CMakeLists.txt ]
   [ -f hello/CMakePresets.json ]
-  [ -f hello/conanfile.txt ]
+  [ ! -e hello/conanfile.txt ]
+  [ ! -e hello/.forge/base/conanfile.txt ]
+  jq -e '.files | has("conanfile.txt") | not' hello/.forge/state.json
   [ -f hello/cmake/Targets.cmake ]
   [ -f hello/.forge/state.json ]
   [ -f hello/.forge/base/CMakeLists.txt ]
@@ -127,14 +129,14 @@ load ../test_helper
   run_forge new <<< $'prompted\n2.3.4\nDescription\nAuthor\nmail@example.test'
   [ "$status" -eq 0 ]
   [[ "$output" == *"Project name"*Version*Description*"Author name"*"Author email"* ]]
-  [[ "$output" == *"[ ] Writing Forge.toml"* ]]
+  [[ "$output" == *"[✓] Writing Forge.toml"* ]]
   grep -Fxq 'version = "2.3.4"' prompted/Forge.toml
 
   mkdir initialized
   cd initialized
   run_forge --quiet init --defaults --name scripted --version 3.2.1 --description 'Scripted setup' --author Dev
   [ "$status" -eq 0 ]
-  [[ "$output" != *"[ ]"* ]]
+  [[ "$output" != *"[✓]"* && "$output" != *"[✗]"* ]]
   grep -Fxq 'name = "scripted"' Forge.toml
   grep -Fxq 'author = "Dev"' Forge.toml
 }
@@ -157,7 +159,7 @@ load ../test_helper
   run_forge new --lib math --namespace acme::numeric --defaults
   [ "$status" -eq 0 ]
   grep -Fxq 'namespace acme::numeric {' math/include/math.hpp
-  grep -Fxq 'class math_library {' math/include/math.hpp
+  grep -Fxq 'class FORGE_math_API math {' math/include/math.hpp
   mkdir initialized
   cd initialized
   run_forge init --lib --name geometry --namespace acme::geometry --defaults
@@ -202,5 +204,50 @@ load ../test_helper
   [ "$status" -eq 0 ]
   grep -Fxq 'type = "shared"' Forge.toml
   grep -Fq 'add_library(toolkit SHARED src/toolkit.cpp)' cmake/Targets.cmake
-  grep -Fq 'WINDOWS_EXPORT_ALL_SYMBOLS ON' cmake/Targets.cmake
+  grep -Fq 'target_compile_definitions(toolkit PUBLIC FORGE_toolkit_SHARED)' cmake/Targets.cmake
+  grep -Fxq '#define FORGE_toolkit_API __declspec(dllexport)' include/toolkit_export.h
+  grep -Fxq '#define FORGE_toolkit_API __declspec(dllimport)' include/toolkit_export.h
+}
+
+@test "scaffolding prints green successes and a red cross for a failed step" {
+  cd "$BATS_TEST_TMPDIR"
+  run env -u NO_COLOR FORCE_COLOR=1 "$FORGE_BASH" "$FORGE_BIN" new healthy --defaults
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'[\033[32m✓\033[0m] Creating project directories'* ]]
+  [[ "$output" == *$'[\033[32m✓\033[0m] Generating CMake files and recording sync state'* ]]
+  [[ "$output" != *'[ ]'* ]]
+
+  mkdir broken
+  cd broken
+  touch src
+  run env -u NO_COLOR FORCE_COLOR=1 "$FORGE_BASH" "$FORGE_BIN" init --defaults
+  [ "$status" -eq 1 ]
+  [[ "$output" == *$'[\033[31m✗\033[0m] Creating project directories'* ]]
+  [[ "$output" != *'Writing editor settings'* ]]
+}
+
+@test "named new accepts an empty pipe and rejects incomplete metadata" {
+  cd "$BATS_TEST_TMPDIR"
+  run_forge new from_pipe < <(printf '')
+  [ "$status" -eq 0 ]
+  [ -f from_pipe/Forge.toml ]
+  grep -Fxq 'version = "0.1.0"' from_pipe/Forge.toml
+  [[ "$output" != *'Version [0.1.0]:'* ]]
+
+  run_forge new from_dev_null --dry-run </dev/null
+  [ "$status" -eq 0 ]
+  [ ! -e from_dev_null ]
+
+  run_forge new incomplete < <(printf '1.2.3\n')
+  [ "$status" -eq 2 ]
+  [[ "$output" == *'expected Description'* ]]
+  [ ! -e incomplete ]
+}
+
+@test "C++ library rejects a keyword class name even with a valid namespace override" {
+  cd "$BATS_TEST_TMPDIR"
+  run_forge new class --lib --namespace acme --defaults
+  [ "$status" -eq 2 ]
+  [[ "$output" == *'C++ keyword cannot be used as a class name'* ]]
+  [ ! -e class ]
 }

@@ -5,7 +5,7 @@
 | `Forge.toml` | User intent | `add`/`remove` edit it transactionally; ambiguous edits are refused |
 | `CMakeLists.txt`, `cmake/*.cmake` | User-owned after creation | Created once; `sync` proposes changes |
 | `CMakePresets.json`, `CMakeUserPresets.json` | User-owned | Same sync policy; Conan may write its own user presets |
-| `conanfile.txt` | User-owned recipe | Created once; `sync` proposes patches |
+| `conanfile.txt` | Generated recipe with local edits preserved | Sync creates it when Conan is used and backs up an unmodified recipe when it is no longer needed |
 | `conan.lock` | Conan's | Written by `forge deps lock`; committed |
 | `.forge/state.json` | Tool-owned, committed | Template ID, hashes of generated base files, manifest hash |
 | `.forge/base/` | Tool-owned | Base copies used for three-way merges |
@@ -36,10 +36,15 @@ freshly rendered template:
 `forge build` never regenerates CMake. If the manifest and CMake disagree, it
 fails with exit 6 and recommends `forge sync --diff`.
 
-## Fingerprint inputs
+## Build directories
 
-Build directories are `target/<profile>-<fingerprint>/`. The fingerprint hashes
-compiler identity, generator, architecture, profile, Conan host/build profile
-settings, sanitizer flags and any explicit toolchain file. `compile_commands.json`
-is exported in the build tree and linked into the project root only when no
-file exists there (or with `build --link-compile-commands` consent).
+Debug and Release reuse `target/debug/` and `target/release/`. Forge records
+the compiler, generator, toolchain and dependency inputs in each build tree.
+When the fingerprint changes, Forge reconfigures that directory with a fresh
+CMake cache. Sanitizer builds have a separate `target/sanitizers/` tree.
+
+CMake exports `compile_commands.json` in each build directory. Forge refreshes
+the stable link at `target/compile_commands.json` and exposes it at the
+project root. Existing user-owned databases and unrelated links at the root
+require `build --link-compile-commands` to replace. Old fingerprinted folders
+remain available for explicit cleanup.

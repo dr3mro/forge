@@ -11,6 +11,8 @@ and Make · Conan 2 · Git.
 
 ## Quick start
 
+[Install Forge with curl](#install) before running these commands.
+
 ```bash
 # Requirements: Bash 4+, CMake, Ninja, Conan 2 (if using Conan deps), Git, jq, Python 3.11+
 forge doctor
@@ -33,19 +35,20 @@ forge docs
 Install Doxygen to use `forge docs`, then open `target/docs/html/index.html`.
 
 Add a Conan dependency from the project root or inside a workspace member.
+Forge generates `conanfile.txt` when the first Conan dependency is added.
 
 ```bash
 forge add fmt --conan
 # Or choose an exact version with: forge add fmt/12.2.0 --conan
-forge deps lock
 forge build
 ```
 
 Forge discovers the CMake package and exported target from Conan, links the
 current module’s sole application or library, and applies workspace sync.
 At the workspace root, Forge prioritizes the sole application.
-Use `--target NAME` when the module has multiple targets. Run `forge deps lock`
-from the workspace root. Bare `fmt` uses the tested `fmt/12.1.0` default.
+Use `--target NAME` when the module has multiple targets. Adding a Conan
+dependency refreshes the workspace-root `conan.lock` after sync. Bare `fmt`
+uses the tested `fmt/12.1.0` default.
 For other bare names, Forge asks Conan to resolve a version and records the
 exact result.
 
@@ -57,7 +60,8 @@ forge build
 ```
 
 Forge gives vcpkg a generated workspace manifest inside the build directory.
-Other ports require `--cmake-target` and can override the CMake package name
+SQLite also has a shortcut, `forge add sqlite3 --vcpkg`. Other ports require
+`--cmake-target` and can override the CMake package name
 with `--cmake-package`. See the [dependency guide](docs/dependencies.md).
 
 ### Change a dependency in Forge.toml
@@ -126,29 +130,30 @@ own hook registration.
 
 ## Install
 
-Install from a local source directory, including an unpacked source archive.
-The installer requires Git to track the files it owns.
+Use curl to install Forge from the official GitHub repository. Install Git
+first.
 
 ```sh
-sh install.sh                  # Use the script's source directory
-sh install.sh --source /path/to/forge
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh | sh
 ```
 
-When the repository URL is available, replace the placeholders to install from
-its default branch through the streamed installer.
+The installer configures Bash and Zsh to add `~/.local/bin` to PATH when
+needed. Open a new shell and run `forge doctor`.
+
+Pass `--source` to install from a local directory, including an unpacked
+source archive, or to select another Git repository.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/REPOSITORY/DEFAULT_BRANCH/install.sh |
-  sh -s -- --repo https://github.com/OWNER/REPOSITORY.git
+sh install.sh --source .
+curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh |
+  sh -s -- --source https://github.com/OWNER/forge.git
 ```
 
 Forge installs into `~/.local/share/forge` and creates `~/.local/bin/forge`.
 `forge update` refreshes it from the original directory or Git repository.
 `forge uninstall` and `sh uninstall.sh` remove the installation and its
-Bash and Zsh completion files. Start a new interactive shell to load
-completions. Bash login shells can load `~/.bashrc` from `~/.bash_profile`.
-Existing completion files and symlinked startup files are preserved.
+Bash and Zsh completion files and Forge-managed PATH entries. Existing
+completion files and symlinked startup files are preserved.
 
 ## Command reference
 
@@ -164,7 +169,7 @@ terminal, or `forge help deps pin` to open a specific subcommand.
 | `new` | `forge new --name hello --git` | Prompt for details and scaffold a directory |
 | `init` | `forge init --name widget --lib --defaults` | Prompt for project details in the current directory |
 | `build` | `forge build --debug-target hello` | Configure and compile a project or target |
-| `run` | `forge run --release --bin hello -- --version` | Run a built executable and forward arguments |
+| `run` | `forge run --build --release --bin hello -- --version` | Run an executable, optionally building it first |
 | `test` | `forge test smoke --repeat 3` | Run CTest with a filter, repeat count, or sanitizer |
 | `clean` | `forge clean --profile release --dry-run` | Remove Forge-owned build directories |
 | `add` | `forge add fmt/12.1.0 --conan --target hello` | Declare a dependency and sync the workspace |
@@ -189,12 +194,13 @@ Bash and Zsh completion list commands at `forge`, subcommands at `forge deps`
 or `forge generate`, and relevant options after you type `--`. Start a new
 interactive shell after installing or updating Forge to load the completion.
 
-For libraries, `--namespace acme::numeric` works with `generate lib`,
-`new --lib`, and `init --lib`. The namespace defaults to the library's project
-name. The header declares a `<name>_library` class with public, protected, and
-private sections, defaulted construction and assignment, and a virtual
-destructor. The sample free function remains in the library's original
-project namespace. C libraries use their existing C interface.
+For C++ libraries, `generate lib` uses the root application project's name
+as the namespace, including when run from a nested member. Standalone
+libraries from `new --lib` or `init --lib` use their own project name.
+All three commands accept `--namespace` to override the default. For
+example, `forge generate lib math` in project `hello` generates `hello::math`.
+The header declares the constructors, virtual destructor, and assignment
+operators. The source defaults those operations in the same namespace.
 
 ```bash
 forge generate lib math --namespace acme::numeric
@@ -215,6 +221,11 @@ forge generate lib plugin --shared --namespace acme::plugins
 Change `type = "static"` or `type = "shared"` under `[[lib]]` in
 `Forge.toml`, then run `forge sync --apply --yes`. Older manifests with no
 `type` retain CMake's `BUILD_SHARED_LIBS` behavior.
+
+Generated C and C++ libraries include a `<name>_export.h` header. Shared
+targets use the API annotation for DLL exports and imports on Windows and
+for public symbol visibility on macOS and Linux. Static builds use the same
+headers with an empty API annotation.
 
 ## GitHub Actions
 
@@ -255,6 +266,15 @@ Binary projects launch their application, and library projects launch
 their test executable. Forge creates these editor files during scaffolding
 and leaves subsequent edits to them in your project.
 
+Debug and Release reuse `target/debug/` and `target/release/`. When the
+configuration changes, Forge refreshes CMake in place. After a successful
+build, Forge updates `target/compile_commands.json` to
+point to that build's compilation database. Zed's clangd finds it through
+`compile_commands.json` at the project root, so a Debug or Release build
+refreshes the compiler flags and dependency include paths. Run `forge build`
+after changing dependencies. If you use a custom root database, pass
+`forge build --link-compile-commands` to replace it with Forge's link.
+
 ## Documentation
 
 - [Getting started](docs/getting-started.md)
@@ -274,3 +294,7 @@ bash tests/run.sh
 
 Forge's own CI runs ShellCheck, `doctor`, Bats unit tests and real-tool
 integration tests on both macOS and Ubuntu (`.github/workflows/ci.yml`).
+
+## License
+
+Forge is distributed under the [MIT License](LICENSE).

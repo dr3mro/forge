@@ -1,7 +1,12 @@
 #include "{{NAME}}.hpp"
 
-namespace {{NAME}} {
+namespace {{NAMESPACE}} {
 
-int add(int a, int b) { return ::{{NAMESPACE}}::{{NAME}}_library::add(a, b); }
+{{NAME}}::{{NAME}}() = default;
+{{NAME}}::{{NAME}}(const {{NAME}}&) = default;
+{{NAME}}::{{NAME}}({{NAME}}&&) noexcept = default;
+{{NAME}}& {{NAME}}::operator=(const {{NAME}}&) = default;
+{{NAME}}& {{NAME}}::operator=({{NAME}}&&) noexcept = default;
+{{NAME}}::~{{NAME}}() = default;
 
-}  // namespace {{NAME}}
+}  // namespace {{NAMESPACE}}

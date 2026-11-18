@@ -1,6 +1,18 @@
 # shellcheck shell=bash
 # Forge command: generate (Phase 4 workspace members).
 
+# Use the root package name even when generating inside a nested member.
+workspace_application_namespace() {
+  local root json
+  root=$(workspace_enclosing_root "${FORGE_ROOT}") || return 1
+  if [[ "${root}" == "${FORGE_ROOT}" ]]; then
+    mq '.package.name'
+  else
+    json=$(manifest_to_json "${root}/Forge.toml") || return 1
+    jq -er '.package.name' <<< "${json}"
+  fi
+}
+
 # Scaffold a workspace member and register it in the parent manifest.
 cmd_generate() {
   local kind="${1:-}" name="${2:-}" subdir dest extension=cpp cpp_namespace="" linkage=""
@@ -45,15 +57,18 @@ cmd_generate() {
 
   [[ "${kind}" == lib || -z "${linkage}" ]] \
     || die "${EXIT_USAGE}" "--static and --shared are available for libraries"
-  if [[ "${kind}" == lib && "${extension}" == cpp ]]; then
-    cpp_namespace="${cpp_namespace:-${name}}"
-    validate_cpp_namespace "${cpp_namespace}"
-  elif [[ -n "${cpp_namespace}" ]]; then
+  if [[ -n "${cpp_namespace}" && ( "${kind}" != lib || "${extension}" != cpp ) ]]; then
     die "${EXIT_USAGE}" "--namespace is available for C++ libraries"
   fi
 
-  require_project
   manifest_load
+  if [[ "${kind}" == lib && "${extension}" == cpp ]]; then
+    validate_cpp_identifier "${name}" "class name"
+    if [[ -z "${cpp_namespace}" ]]; then
+      cpp_namespace=$(workspace_application_namespace) || die "${EXIT_USAGE}" "could not read the workspace project name"
+    fi
+    validate_cpp_namespace "${cpp_namespace}"
+  fi
   if [[ "${kind}" == "lib" ]]; then
     subdir="libs/${name}"
   else

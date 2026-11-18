@@ -67,14 +67,20 @@ projects for manual tests.
   configs. Binary projects debug their app and library projects debug their
   test executable. The prelaunch task calls `forge build --debug-target NAME`
   and uses the stable `target/debug-NAME-launch` symlink.
-- `sh install.sh` uses its adjacent source directory. `--source DIR` selects
-  an unpacked source directory or a live checkout and copies the current CLI
-  files. `--repo URL` (or `FORGE_REPOSITORY` for a streamed script) stages the
-  Git repository's default branch. No official repository URL is configured.
-  The installer tracks owned files in a private Git checkout or snapshot
-  under `~/.local/share/forge` and links `~/.local/bin/forge`. `forge update`
-  refreshes from the recorded source. Both uninstall entry points preserve
-  unmanaged paths and installations with local edits or extra files.
+- With no arguments, `sh install.sh` and the streamed installer clone the
+  default branch of `https://github.com/dr3mro/forge.git`. The published
+  script URL is `https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh`.
+  `--source DIR_OR_REPO` copies an existing directory or clones a Git
+  repository. Local snapshots include the MIT license when present. The
+  `--repo` flag and a positional Git source remain accepted. `forge update`
+  uses the original source. Both uninstall entry points preserve unmanaged
+  paths and installations with local edits or extra files.
+- Keep the primary curl command, launcher PATH setup, and `forge doctor`
+  example aligned across README, `docs/getting-started.md`, and
+  `docs/index.html`. Show local source installation as an alternate option.
+- Register PATH with an exact, guarded startup line in Bash interactive and
+  login profiles and in Zsh's `.zshrc`. Check the entire PATH component
+  before prepending. Uninstall removes the matching Forge-owned line.
 - The installer creates completion links under Bash's per-user completion
   directory and `${ZDOTDIR:-$HOME}/.zfunc`. It registers them in regular
   `.bashrc` and `.zshrc` files and removes its registrations on uninstall.
@@ -82,9 +88,9 @@ projects for manual tests.
 - `forge new [NAME]` and `forge init` share parsing for `--bin|--lib`,
   `--git`, `--defaults`, `--name`, `--version`, `--description`, `--author`,
   and `--email`. They prompt for omitted metadata in that order unless
-  `--defaults` is present. An existing positional name still works for
-  noninteractive `new` with no piped input. Scripts can pipe one line per
-  omitted field. Supplying `--name` or any other metadata flag skips exactly
+  `--defaults` is present. A named noninteractive `new` uses defaults on
+  empty stdin, including an empty pipe. It cancels if a response stream
+  starts and then ends early. Scripts can pipe one line per omitted field. Supplying `--name` or any other metadata flag skips exactly
   that prompt. The default version is `0.1.0`. Description goes into the
   manifest and README. `package.author` is inherited by generated files.
 - New scaffolds include `version.cpp.in` and a deployable
@@ -96,13 +102,18 @@ projects for manual tests.
   include. Before tagging it takes the version from `package.version`.
   Existing custom hooks can chain the generated hook. Hook registration is
   local to the Git checkout.
-- Use `progress` before user-visible workflow stages. It prints a
-  checklist marker on stderr and respects `--quiet`. Keep data and JSON on
-  stdout and preserve passthrough for `forge run`.
+- Pair `progress "step"` with `progress_finish` after successful work.
+  A failed step uses `progress_finish STATUS` or is closed by `die`.
+  Diagnostics show one result line per step, with a green check or red cross
+  when color is enabled. Keep results on stderr and respect `--quiet`.
 - Contextual help and Bash/Zsh completion use `lib/cli-reference.tsv`.
   The shell adapters call the internal `__complete` protocol. Keep the same
   commands, options, and examples represented in `docs/index.html` and README.
   The website test checks catalog coverage and navigation links.
+- `forge run --build` uses the normal build pipeline for the requested
+  profile and workspace application, then launches the freshly built
+  executable. Build diagnostics go to stderr so the app owns stdout.
+  Arguments after `--` and the app's exit status pass through.
 - `forge run --debug` and `forge run --release` override the manifest build
   profile. With no `--bin`, run selects the current module’s only declared
   application and can use a workspace-root build. Arguments after `--` go to
@@ -117,6 +128,10 @@ projects for manual tests.
   its local links, then applies workspace sync. `remove NAME --lib` detaches
   `libs/NAME` and its parent links while preserving the source directory.
   References from other members must be cleared first.
+- Conan adds sync first, then refresh a missing or stale workspace-root lock.
+  If locking fails, the manifest and sync edits remain saved and the previous
+  lock is preserved. Repeating an unchanged shortcut skips a current lock.
+  Use `forge deps lock` for explicit refreshes after manual manifest edits.
 - `forge add NAME[/VERSION] --conan` uses Conan install JSON to discover
   `cmake_file_name` and `cmake_target_name` under the workspace default profile.
   The discovery install uses a temporary output directory and never builds
@@ -127,9 +142,14 @@ projects for manual tests.
   reference.
 - `forge add PORT --vcpkg` requires a bootstrapped checkout in `VCPKG_ROOT`
   at build time. Forge generates a workspace port manifest under the
-  fingerprinted build directory. vcpkg is the outer toolchain and can
+  stable profile build directory. vcpkg is the outer toolchain and can
   chainload Conan. For vcpkg ports, probe CMake's Find module before falling
   back to config mode because Conan's toolchain otherwise prefers config mode.
+  SQLite's vcpkg defaults are package `unofficial-sqlite3` and target
+  `unofficial::sqlite3::sqlite3`. Reject vcpkg imports naming a local project
+  target. Conan installs disable root user-preset generation. Before builds,
+  Forge prunes old fingerprinted includes from Conan-marked
+  `CMakeUserPresets.json` files and preserves unrelated includes.
   Set `features`, `default_features`, and exact `version` on the port's TOML
   dependency table. Exact versions require `build.vcpkg_baseline` from the
   workspace root. Repeated port declarations must agree. The generated
@@ -146,7 +166,9 @@ projects for manual tests.
 - Library scaffolds persist `[[lib]].type` through `--static` (default)
   or `--shared` (alias `--dynamic`) for both C and C++. Existing manifests
   without a type retain CMake's `BUILD_SHARED_LIBS` behavior. Explicit static
-  libraries enable PIC and shared libraries enable Windows symbol export.
+  libraries enable PIC. New shared libraries use the generated
+  `<name>_export.h` API macro for Windows import/export and default symbol
+  visibility on GCC/Clang. Older shared libraries retain auto-export.
 - `new` and `init` create a user-owned root CI workflow. `workflow init`
   adds it to older projects and refuses to replace any existing CI files.
   `templates/workflow/ci.py.tpl` normalizes recursive dependencies, installs
@@ -158,10 +180,12 @@ projects for manual tests.
   website reference when you change linkage options in the CLI catalog.
 - C++ library scaffolds from `generate lib`, `new --lib`, and `init --lib`
   accept `--namespace NAME`, including nested names such as `acme::math`.
-  The default is the library project's name. The `<name>_library` class defines
-  all three access sections, defaulted construction and assignment, and a
-  defaulted virtual destructor. The sample free function stays in the
-  library's own namespace to let multiple libraries share a class namespace.
+  Workspace members use the root application project's name, even when
+  generated from a nested member. Standalone libraries use their own project
+  name. The class name matches the library name exactly. The header declares
+  the public constructors, assignment operators, and
+  virtual destructor. The source defaults each operation in the same
+  namespace. The generated C++ class has no sample methods or free helpers.
 - `forge docs` runs optional Doxygen from the project root and writes
   `target/docs/html/index.html`. Its stdin configuration uses manifest metadata,
   declared bin/lib source files, and the conventional `src/` and `include/`
@@ -179,6 +203,51 @@ projects for manual tests.
   excludes installed copies, the POSIX lifecycle scripts, jq, Python, and
   branch coverage. The latest run covered 2,171 of 2,586 Bash runtime lines
   (83.95%), up from 82.95%. See `progress.md` for the reproduction steps.
+
+The sanitizer lock fix reads the workspace state directly during Conan lock
+validation. Neither sanitizer tests nor `deps status` needs to initialize
+sync state first. A real Conan/fmt AddressSanitizer regression verifies
+fresh-lock acceptance and genuine stale-lock rejection. The reported `sql`
+workspace passed the read-only status and dry-run checks.
+
+The automatic-lock follow-up passed 31 focused Bats tests and ShellCheck.
+Real Conan builds cover automatic root and workspace-member locking. Fixtures
+cover dry-run, offline locking, current-lock reuse, and preservation of a
+previous lock when Conan fails after sync.
+
+The stable-build and preset repair passed all 140 Bats tests and ShellCheck.
+Tests verify in-place toolchain refresh, profile locking, editor links,
+sanitizer isolation, and a real Conan build combined with a vcpkg SQLite
+fixture after reproducing the duplicate preset error. Existing fingerprinted
+build trees stay untouched until explicit cleanup.
+
+The build-and-run and library export follow-up passed all 136 Bats tests and
+ShellCheck. Tests cover Debug/Release selection, nested workspaces, dry-run,
+argument and status forwarding, and shared C and C++ linking and packaging.
+Clang cross-compilation for the Windows MSVC target independently confirmed
+the generated C++ DLL export and import annotations.
+
+Forge's repository CI installs Conan 2.33.0 in a runner-local virtual
+environment and seeds the Debug fmt 12.1.0 fixture. Keep Bats' failure output
+enabled in CI so setup failures show the originating Forge diagnostic. The
+empty-pipe test reproduces the Ubuntu scaffold failure independently of how a
+runner exposes stdin. All 133 local Bats tests, ShellCheck for the changed
+shell files, and actionlint passed. Hosted CI still needs a run.
+
+The compilation-database follow-up verified legacy-link migration,
+Debug/Release switching, user-owned root database preservation, and clangd's
+resolution of fmt after adding the real Conan package to an existing build.
+
+The namespace, installer PATH, and progress follow-up passed all 131 Bats
+tests, POSIX installer syntax validation, and ShellCheck. Tests exercise
+nested library namespaces, Bash and Zsh startup and uninstall, ANSI-colored
+scaffold and installer results, and failed workspace sync.
+
+The installer URL follow-up passed POSIX syntax, ShellCheck, and nine focused
+installer and website tests. Tests redirect the official remote to a temporary
+Git fixture and cover no-argument direct and streamed installs and both
+`--source` modes. The public raw URL returned HTTP 200. The updated script
+must be published before the raw URL serves the new behavior.
 
 The explicit OCI dependency-image follow-up passed actionlint, six workflow
 and website checks, and the local Debug/Release packaging integration test.
@@ -213,7 +282,7 @@ PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
 3. **Global flags are parsed anywhere before `--`** (`sync --apply --yes` must work), unknown flags before the command are usage errors, after the command they pass through.
 4. **File API has two levels**: codemodel references contain `jsonFile` names; load those for `type` and `artifacts[0].path`. An artifact path is absolute or relative to the top-level build directory. Prepending `paths.build` duplicates the subdirectory for workspace targets.
 5. **`git merge-file -p -L current -L base -L incoming`** keeps temp paths out of conflict markers; binary files return 255 → treat as conflict.
-6. **Lock staleness is keyed to Conan-relevant manifest data across the graph**, not file mtimes, so `add → deps lock → sync` works.
+6. **Lock staleness is keyed to Conan-relevant manifest data across the graph**. After sync, Conan adds refresh stale locks automatically. Manual Conan edits still support an explicit `forge deps lock`.
 7. **Conan option patterns in `conanfile.txt` use the package name** as in `fmt/*:header_only=True`. Including the version in that pattern selects the wrong fmt target. Forge renders TOML booleans as Conan's capitalized `True` and `False`.
 8. **CMake `-B` overrides preset binaryDir**, so fingerprinted dirs work with `cmake --preset`.
 9. **Complexity check**: reuse of a configured build requires both `CMakeCache.txt` and `build.ninja`/`Makefile`.
@@ -230,10 +299,17 @@ PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
   including multiline link and member arrays, and checks its parsed edit against
   the intended data change before writing. `manifest_add_link_to_targets` appends to every `[[bin]]/[[lib]]/[[test]]` `links` array.
 - `sync`: `sync_prepare` collects the graph, then for each node temporarily swaps `FORGE_ROOT`/`FORGE_MANIFEST_JSON`/`FORGE_MANIFEST_PATH`/`FORGE_STATE_PATH`, renders templates to a temp dir, restores globals. `sync_detect_drift` returns 0/1/2 and fills `FORGE_SYNC_MESSAGES` with `label: message`. `sync_apply` merges per project with per-project proposals/backups.
-- Root `conanfile.txt` aggregates every reachable Conan requirement; members keep their own declarations. Conflicting options for the same package or duplicate CMake target names are rejected.
-- `compute_fingerprint` includes compiler, generator, arch, profile, Conan profiles, sanitizer, toolchain file. Build dir: `target/<profile>-<fingerprint>/`.
-- `compile_commands.json` is symlinked into the root only when absent, or with `build --link-compile-commands`.
+- Render the Conan recipe from `templates/base/conanfile.txt.tpl` only when the module declares Conan dependencies or the workspace root has reachable Conan requirements. Root recipes aggregate the graph. Sync creates the recipe on first use and retires unused managed recipes, backing up unmodified files and preserving edited ones. A different user-owned recipe triggers a proposal on first use. Conflicting options for the same package or duplicate CMake target names are rejected.
+- `compute_fingerprint` includes compiler, generator, arch, profile, Conan profiles, sanitizer, toolchain file. Store the fingerprint in `target/<profile>/.forge-config` and refresh CMake in the stable profile directory when it changes.
+- CMake exports the per-build database; successful builds atomically refresh
+  `target/compile_commands.json` from normal builds and expose it through the root link for
+  clangd. Migrate old Forge-owned direct links automatically. Preserve a
+  user-owned root database unless `build --link-compile-commands` is set.
 - UI: `ui_help_row LABEL DESCRIPTION LABEL_WIDTH [green|cyan|bold]`; label column padded, descriptions start at a fixed column, no dots.
+
+Optional Conan recipe verification on macOS: all 146 Bats tests passed with a
+writable Conan fixture cache, and ShellCheck passed. Regressions cover recipe
+creation in a workspace, vcpkg-only projects, and preservation of local edits.
 
 ## 8. How to continue
 

@@ -58,5 +58,6 @@ cmd_docs() {
     || die "${EXIT_BUILD}" "Doxygen generation failed"
   [[ -f "${FORGE_ROOT}/target/docs/html/index.html" ]] \
     || die "${EXIT_BUILD}" "Doxygen did not generate an HTML index"
+  progress_finish
   out "docs ok: target/docs/html/index.html"
 }

@@ -47,3 +47,12 @@ for line in (root / "lib/cli-reference.tsv").read_text().splitlines():
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "public install instructions use the same curl URL and launcher path" {
+  local page
+  local command='curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh | sh'
+  for page in README.md docs/getting-started.md docs/index.html; do
+    grep -Fq "$command" "$FORGE_PROJECT_DIR/$page"
+    grep -Fq '~/.local/bin' "$FORGE_PROJECT_DIR/$page"
+  done
+}

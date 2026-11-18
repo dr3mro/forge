@@ -49,14 +49,17 @@ cmd_test() {
     esac
     FORGE_SANITIZER="${sanitize}"
     gen=$(normalize_generator "$(mq '.build.generator // "Ninja"')")
-    build_dir=$(resolve_build_dir "${profile}")
+    build_dir=$(resolve_build_dir "${profile}") || die "${EXIT_USAGE}" "invalid build profile: ${profile}"
+    cmake_check_build_path "${build_dir}"
+    build_lock_acquire "${build_dir}"
     FORGE_EXTRA_CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=${flags}" "-DCMAKE_EXE_LINKER_FLAGS=${flags}")
     if conan_graph_has_deps; then
       conan_prepare_requirements "${FORGE_ROOT}"
       FORGE_CONAN_REQUIREMENTS_MODE="graph"
-      conan_install "${build_dir}" "${profile}"
+      cmake_check_build_path "${build_dir}/.forge-conan"
+      conan_install "${build_dir}/.forge-conan" "${profile}"
       FORGE_CONAN_REQUIREMENTS_MODE="local"
-      toolchain=$(conan_toolchain_path "${build_dir}")
+      toolchain=$(conan_toolchain_path "${build_dir}/.forge-conan")
     fi
     if (( FORGE_DRY_RUN )); then
       status "dry-run: would build and test ${build_dir#"${FORGE_ROOT}"/} with ${sanitize}"
@@ -65,7 +68,7 @@ cmd_test() {
     forge_perform_build "${build_dir}" "${profile}" "${gen}" "${toolchain}"
     status "sanitizer build: ${build_dir#"${FORGE_ROOT}"/}"
   else
-    build_dir=$(resolve_build_dir "${profile}")
+    build_dir=$(resolve_build_dir "${profile}") || die "${EXIT_USAGE}" "invalid build profile: ${profile}"
   fi
 
   [[ -d "${build_dir}" ]] \
@@ -87,11 +90,13 @@ cmd_test() {
 
   if [[ "${output}" == *"No tests were found"* ]]; then
     if (( allow_no_tests )); then
+      progress_finish
       status "no tests found (allowed by --allow-no-tests)"
       return "${EXIT_OK}"
     fi
     die "${EXIT_BUILD}" "no tests found (use '[[test]]' targets or --allow-no-tests)"
   fi
   (( rc == 0 )) || die "${EXIT_BUILD}" "tests failed"
+  progress_finish
   out "tests ok"
 }

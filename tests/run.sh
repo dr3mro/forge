@@ -10,4 +10,4 @@ if ! command -v bats >/dev/null 2>&1; then
   exit 3
 fi
 
-exec bats "${ROOT}/tests/unit" "${ROOT}/tests/integration"
+exec bats "$@" "${ROOT}/tests/unit" "${ROOT}/tests/integration"

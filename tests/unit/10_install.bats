@@ -6,9 +6,10 @@ load ../test_helper
 setup() {
   SOURCE="${BATS_TEST_TMPDIR}/source"
   export HOME="${BATS_TEST_TMPDIR}/test home"
+  export GIT_CONFIG_GLOBAL="$HOME/.gitconfig"
   mkdir -p "$HOME" "$SOURCE"
   cp -R "${FORGE_PROJECT_DIR}/bin" "${FORGE_PROJECT_DIR}/lib" "${FORGE_PROJECT_DIR}/templates" "$SOURCE"
-  cp "${FORGE_PROJECT_DIR}"/{install.sh,uninstall.sh,tools.versions} "$SOURCE"
+  cp "${FORGE_PROJECT_DIR}"/{install.sh,uninstall.sh,tools.versions,LICENSE} "$SOURCE"
   git -C "$SOURCE" init -q
   git -C "$SOURCE" config user.name 'Forge Tests'
   git -C "$SOURCE" config user.email 'forge@example.invalid'
@@ -98,8 +99,9 @@ setup() {
   cd "$SOURCE"
   printf '# user bash settings\n' > "$HOME/.bashrc"
   printf '# user zsh settings\n' > "$HOME/.zshrc"
-  run sh install.sh
+  run sh install.sh --source .
   [ "$status" -eq 0 ]
+  cmp LICENSE "$INSTALLATION/LICENSE"
   local bash_completion="$HOME/.local/share/bash-completion/completions/forge"
   local zsh_completion="$HOME/.zfunc/_forge"
   [ -f "$bash_completion" ]
@@ -126,14 +128,15 @@ setup() {
   grep -Fxq '# user zsh settings' "$HOME/.zshrc"
 }
 
-@test "piped installer requires a repository and preserves user completion files" {
-  run sh -s < "$SOURCE/install.sh"
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"requires --repo or FORGE_REPOSITORY"* ]]
+@test "piped installer defaults to the official repository and preserves user completions" {
+  local origin=https://github.com/dr3mro/forge.git
+  git config --global "url.file://$SOURCE.insteadOf" "$origin"
   mkdir -p "$HOME/.zfunc"
   printf 'user completion\n' > "$HOME/.zfunc/_forge"
-  run sh -s -- --repo "file://$SOURCE" < "$SOURCE/install.sh"
+  run sh -s < "$SOURCE/install.sh"
   [ "$status" -eq 0 ]
+  [ "$(git -C "$INSTALLATION" config --get remote.origin.url)" = "$origin" ]
+  [ "$(git -C "$INSTALLATION" rev-parse --is-shallow-repository)" = true ]
   run "$LAUNCHER" uninstall
   [ "$status" -eq 0 ]
   grep -Fxq 'user completion' "$HOME/.zfunc/_forge"
@@ -162,4 +165,80 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" = $'--\n--format' ]
   fi
+}
+
+
+@test "direct installer uses the default remote and --source can select a remote" {
+  local origin=https://github.com/dr3mro/forge.git
+  git config --global "url.file://$SOURCE.insteadOf" "$origin"
+  cd "$SOURCE"
+  printf '# uncommitted checkout change\n' >> lib/ui.sh
+  run sh install.sh
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$INSTALLATION" config --get remote.origin.url)" = "$origin" ]
+  ! grep -Fxq '# uncommitted checkout change' "$INSTALLATION/lib/ui.sh"
+  run sh uninstall.sh
+  [ "$status" -eq 0 ]
+
+  run sh install.sh --source "file://$SOURCE"
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$INSTALLATION" config --get remote.origin.url)" = "file://$SOURCE" ]
+  [ ! -e "$INSTALLATION/.git/forge-source" ]
+  git -C "$SOURCE" commit -qm update --allow-empty
+  run "$LAUNCHER" update
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$INSTALLATION" rev-parse HEAD)" = "$(git -C "$SOURCE" rev-parse HEAD)" ]
+}
+
+@test "installer configures Bash and Zsh PATH once and uninstalls only its entries" {
+  printf '# existing login settings\n' > "$HOME/.profile"
+  run env -u NO_COLOR FORCE_COLOR=1 sh "$SOURCE/install.sh" --source "$SOURCE"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'[\033[32m✓\033[0m] Configuring Bash and Zsh PATH and completions'* ]]
+  [ ! -e "$HOME/.bash_profile" ]
+  grep -Fq 'Forge PATH' "$HOME/.profile"
+
+  run /bin/bash --noprofile --norc -c '
+    PATH=/usr/bin:/bin
+    . "$HOME/.profile"
+    . "$HOME/.bashrc"
+    . "$HOME/.bashrc"
+    printf "%s\n" "$PATH"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = "$HOME/.local/bin:/usr/bin:/bin" ]
+  run /bin/bash --noprofile --norc -c '
+    PATH="/usr/bin:$HOME/.local/bin:/bin"
+    . "$HOME/.bashrc"
+    printf "%s\n" "$PATH"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = "/usr/bin:$HOME/.local/bin:/bin" ]
+
+  if command -v zsh >/dev/null 2>&1; then
+    run zsh -fc '
+      PATH=/usr/bin:/bin
+      . "$HOME/.zshrc"
+      . "$HOME/.zshrc"
+      printf "%s\n" "$PATH"
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "$HOME/.local/bin:/usr/bin:/bin" ]
+  fi
+
+  run "$LAUNCHER" --offline update
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'Forge PATH' "$HOME/.bashrc")" -eq 1 ]
+  [ "$(grep -c 'Forge PATH' "$HOME/.zshrc")" -eq 1 ]
+  run "$LAUNCHER" uninstall
+  [ "$status" -eq 0 ]
+  ! grep -Fq 'Forge PATH' "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"
+  grep -Fxq '# existing login settings' "$HOME/.profile"
+}
+
+@test "installer reports a failed source step with a red cross" {
+  run env -u NO_COLOR FORCE_COLOR=1 sh "$SOURCE/install.sh" --source "file://$SOURCE/missing"
+  [ "$status" -eq 4 ]
+  [[ "$output" == *$'[\033[31m✗\033[0m] Staging Forge source'* ]]
+  [[ "$output" != *'Publishing Forge installation'* ]]
 }

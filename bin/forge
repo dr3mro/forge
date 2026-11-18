@@ -56,9 +56,6 @@ FORGE_EXTRA_CMAKE_ARGS=()
 FORGE_SANITIZER=""
 FORGE_LINK_COMPILE_COMMANDS=0
 
-# Clean up any registered temp directories on exit (including via die()).
-trap forge_cleanup_tmpdirs EXIT
-
 # Module loader; sources every module with no source-time side effects.
 # shellcheck source=../lib/_load.sh
 if ! source "${FORGE_HOME}/lib/_load.sh"; then
@@ -66,4 +63,6 @@ if ! source "${FORGE_HOME}/lib/_load.sh"; then
   exit 1
 fi
 
+# Close any active step and clean up registered temp directories on exit.
+trap 'progress_finish "$?"; forge_cleanup_tmpdirs' EXIT
 forge_main "$@"

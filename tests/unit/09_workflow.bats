@@ -96,7 +96,12 @@ PY
   printf '{}\n' > conan.lock
   run python3 .github/forge/ci.py prepare
   [ "$status" -ne 0 ]
+  [[ "$output" == *'missing conanfile.txt'* ]]
+  printf '[requires]\nfmt/0.0.1\n' > conanfile.txt
+  run python3 .github/forge/ci.py prepare
+  [ "$status" -ne 0 ]
   [[ "$output" == *'conanfile.txt is out of sync'* ]]
+  rm conanfile.txt
   run_forge sync --apply --yes
   [ "$status" -eq 0 ]
   run python3 .github/forge/ci.py prepare

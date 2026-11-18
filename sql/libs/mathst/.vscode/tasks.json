@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Forge: Build",
+      "command": "forge",
+      "args": [
+        "build"
+      ],
+      "type": "process",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Forge: Test",
+      "command": "forge",
+      "args": [
+        "test"
+      ],
+      "type": "process",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Forge: Debug build",
+      "command": "forge",
+      "args": [
+        "build",
+        "--debug-target",
+        "mathst_tests"
+      ],
+      "type": "process",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

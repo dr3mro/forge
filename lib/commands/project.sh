@@ -10,16 +10,30 @@ project_read_field() {
   [[ -z "${!field+x}" ]] || return 0
   if (( defaults )); then
     printf -v "${field}" '%s' ""
+    return
+  fi
+
+  # A named new project can use defaults on an empty non-interactive stream.
+  # Once any input is supplied, retain cancellation on incomplete metadata.
+  if (( allow_empty_input && ! supplied_input )); then
+    if IFS= read -r answer; then
+      printf '%s: ' "${label}" >&2
+    elif [[ -z "${answer}" ]]; then
+      defaults=1
+    else
+      die "${EXIT_USAGE}" "initialization cancelled: expected ${label}"
+    fi
   else
     printf '%s: ' "${label}" >&2
     IFS= read -r answer || die "${EXIT_USAGE}" "initialization cancelled: expected ${label}"
-    printf -v "${field}" '%s' "${answer}"
   fi
+  supplied_input=1
+  printf -v "${field}" '%s' "${answer}"
 }
 
 project_create() {
   local action="$1" kind=bin git_init=0 defaults=0 cpp_namespace="" linkage=""
-  local name version description author email
+  local name version description author email allow_empty_input=0 supplied_input=0
   shift
   while (( $# )); do
     case "$1" in
@@ -57,8 +71,8 @@ project_create() {
     default_name=${dir##*/}
     default_name="${default_name//[^A-Za-z0-9_]/_}"
     [[ "${default_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || default_name=project
-  elif [[ -n "${name+x}" && ! -t 0 && ! -p /dev/stdin && ! -f /dev/stdin ]]; then
-    defaults=1
+  elif [[ -n "${name+x}" && ! -t 0 ]]; then
+    allow_empty_input=1
   fi
 
   project_read_field "Project name${default_name:+ [${default_name}]}" name
@@ -73,6 +87,7 @@ project_create() {
   [[ "${kind}" == lib || -z "${linkage}" ]] \
     || die "${EXIT_USAGE}" "--static and --shared are available for libraries"
   if [[ "${kind}" == lib ]]; then
+    validate_cpp_identifier "${name}" "class name"
     cpp_namespace="${cpp_namespace:-${name}}"
     validate_cpp_namespace "${cpp_namespace}"
   elif [[ -n "${cpp_namespace}" ]]; then

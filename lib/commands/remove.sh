@@ -35,6 +35,7 @@ cmd_remove() {
   if (( library )); then remove_check_member_links "${member}" "${name}"; fi
   progress "Updating Forge.toml"
   manifest_remove_entry "${FORGE_MANIFEST_PATH}" "${name}" "${member}" "${links}"
+  progress_finish
   if (( library )); then
     out "detached workspace library '${member}' (sources preserved)"
   else

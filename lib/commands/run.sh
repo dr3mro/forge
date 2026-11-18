@@ -3,7 +3,7 @@
 
 # Locate and launch the selected built executable.
 cmd_run() {
-  local bin="" profile="" forward_seen=0
+  local bin="" profile="" forward_seen=0 build_first=0
   local -a forward=()
   while (( $# > 0 )); do
     if (( forward_seen )); then
@@ -12,6 +12,7 @@ cmd_run() {
     fi
     case "$1" in
       --) forward_seen=1; shift ;;
+      --build) build_first=1; shift ;;
       --bin)
         bin="${2:-}"
         [[ -n "${bin}" && "${bin}" != -* ]] || die "${EXIT_USAGE}" "--bin requires a value"
@@ -38,21 +39,10 @@ cmd_run() {
     || die "${EXIT_USAGE}" "invalid executable name: ${bin}"
   manifest_load
   [[ -n "${profile}" ]] || profile=$(mq '.build.default_profile // "debug"')
-  local workspace build_dir exe="" found_build=0 known_target=0
+  local workspace workspace_build build_dir exe="" found_build=0 known_target=0
   local -a build_dirs=() candidates=()
-  build_dirs+=("$(resolve_build_dir "${profile}")")
   workspace=$(workspace_enclosing_root "${FORGE_ROOT}") \
     || die "${EXIT_CONFLICT}" "could not find the enclosing workspace"
-  if [[ "${workspace}" != "${FORGE_ROOT}" ]]; then
-    local workspace_build
-    workspace_build=$(
-      # shellcheck disable=SC2034 # consumed by manifest_load
-      FORGE_MANIFEST_PATH="${workspace%/}/Forge.toml"
-      manifest_load
-      resolve_build_dir "${profile}"
-    ) || return $?
-    build_dirs+=("${workspace_build}")
-  fi
 
   if [[ -z "${bin}" ]]; then
     mapfile -t candidates < <(mq '(.bin // [])[] | .name')
@@ -64,6 +54,33 @@ cmd_run() {
     known_target=1
   elif mq -e --arg bin "${bin}" 'any((.bin // [])[]; .name == $bin)' >/dev/null; then
     known_target=1
+  fi
+
+  if (( build_first )); then
+    if [[ "${workspace}" != "${FORGE_ROOT}" ]]; then
+      FORGE_MANIFEST_PATH="${workspace%/}/Forge.toml"
+      manifest_load
+    fi
+    if (( ! known_target )); then run_check_build_target "${bin}" || return $?; fi
+    build_project "${profile}" "${bin}" >&2 || return $?
+    if (( FORGE_DRY_RUN )); then
+      status "dry-run: would run ${bin} ${forward[*]:-}"
+      return "${EXIT_OK}"
+    fi
+    workspace_build=$(resolve_build_dir "${profile}") || return $?
+    build_dirs=("${workspace_build}")
+    known_target=1
+  else
+    build_dirs+=("$(resolve_build_dir "${profile}")")
+    if [[ "${workspace}" != "${FORGE_ROOT}" ]]; then
+      workspace_build=$(
+        # shellcheck disable=SC2034 # consumed by manifest_load
+        FORGE_MANIFEST_PATH="${workspace%/}/Forge.toml"
+        manifest_load
+        resolve_build_dir "${profile}"
+      ) || return $?
+      build_dirs+=("${workspace_build}")
+    fi
   fi
 
   for build_dir in "${build_dirs[@]}"; do
@@ -89,5 +106,19 @@ cmd_run() {
     status "dry-run: would run ${exe} ${forward[*]:-}"
     return "${EXIT_OK}"
   fi
+  if (( build_first )); then forge_cleanup_tmpdirs; fi
   exec "${exe}" "${forward[@]}"
+}
+
+# Restrict build-and-run to applications declared in the workspace.
+run_check_build_target() {
+  local bin="$1" node json
+  workspace_collect_graph "${FORGE_ROOT}"
+  for node in "${FORGE_GRAPH_NODES[@]}"; do
+    json=$(manifest_to_json "${node}/Forge.toml") || return 1
+    if jq -e --arg bin "${bin}" 'any((.bin // [])[]; .name == $bin)' <<< "${json}" >/dev/null; then
+      return 0
+    fi
+  done
+  die "${EXIT_USAGE}" "no such executable: ${bin}"
 }

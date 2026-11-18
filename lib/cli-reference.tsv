@@ -10,8 +10,8 @@ command	init	init [OPTIONS]	Prompt for project details in the current directory
 example	init	forge init --name widget --lib --defaults
 command	build	build [OPTIONS]	Configure and compile a project or target
 example	build	forge build --debug-target hello
-command	run	run [OPTIONS] [-- ARGS]	Run a built executable and forward arguments
-example	run	forge run --release --bin hello -- --version
+command	run	run [OPTIONS] [-- ARGS]	Run an executable, optionally building it first
+example	run	forge run --build --release --bin hello -- --version
 command	test	test [FILTER] [OPTIONS]	Run CTest with a filter, repeat count, or sanitizer
 example	test	forge test smoke --repeat 3
 command	clean	clean [OPTIONS]	Remove Forge-owned build directories
@@ -84,7 +84,8 @@ option	build	--release	Build the release preset
 option	build	--target NAME	Build one CMake target
 option	build	--toolchain FILE	Use a CMake toolchain file
 option	build	--debug-target NAME	Build one executable and create its LLDB launch path
-option	build	--link-compile-commands	Replace the root compilation database link
+option	build	--link-compile-commands	Allow replacing a user-owned root compilation database
+option	run	--build	Build the selected application before running it
 option	run	--release	Select the release build
 option	run	--debug	Select the debug build
 option	run	--bin NAME	Select a declared executable
@@ -121,7 +122,7 @@ option	fmt	--check	Report formatting differences without editing
 option	metadata	--format FORMAT	Select the metadata output format	json
 option	generate lib	--c	Generate C source and a C-compatible header
 option	generate lib	--cpp	Generate C++ sources (default)
-option	generate lib	--namespace NAME	Set the C++ library namespace (defaults to its project name)
+option	generate lib	--namespace NAME	Set the C++ library namespace (defaults to the root project name)
 option	generate bin	--cpp	Generate C++ sources
 example	new	forge new hello --defaults --version 1.2.3
 example	build	forge build --release --target hello

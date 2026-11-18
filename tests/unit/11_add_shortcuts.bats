@@ -64,6 +64,7 @@ SH
   [[ "$output" == *"Example::Widget"*"example::tool"* ]]
   ! grep -Fq '[dependencies.example]' Forge.toml
 
+  mock_conan_lock
   run_forge --no-color add example/1.0 --conan --cmake-target Example::Widget
   [ "$status" -eq 0 ]
   grep -Fq 'find_package(Example 1.0 CONFIG REQUIRED)' cmake/Dependencies.cmake
@@ -91,6 +92,7 @@ links = [
   # Preserved when linking the dependency explicitly.
 ]
 TOML
+  mock_conan_lock
   run_forge --no-color add fmt/12.2.0 --conan --cmake-package fmt --cmake-target fmt::fmt
   [ "$status" -eq 0 ]
   grep -Fq 'target_link_libraries(demo PRIVATE fmt::fmt)' cmake/Targets.cmake
@@ -128,6 +130,7 @@ fi
 SH
   chmod +x fakebin/conan
   export PATH="$PWD/fakebin:$PATH"
+  mock_conan_lock
   run_forge --no-color add library-x --conan
   [ "$status" -eq 0 ]
   grep -Fxq '[dependencies.library_x]' Forge.toml
@@ -136,4 +139,44 @@ SH
   run_forge --no-color add library-x --conan
   [ "$status" -eq 0 ]
   [[ "$output" == *"already linked"* ]]
+}
+
+@test "Conan add locks the workspace after sync and skips an unchanged lock" {
+  mock_conan_lock
+  run_forge generate lib widget
+  [ "$status" -eq 0 ]
+  cd libs/widget
+  run_forge --offline add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'sync applied'*'wrote conan.lock'* ]]
+  [ -f ../../conan.lock ]
+  [ ! -e conan.lock ]
+  grep -Fq -- '--no-remote' "$FORGE_TEST_CONAN_LOCK_LOG"
+  local first
+  first=$(cat "$FORGE_TEST_CONAN_LOCK_LOG")
+
+  run_forge add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  [ "$status" -eq 0 ]
+  [ "$(cat "$FORGE_TEST_CONAN_LOCK_LOG")" = "$first" ]
+  run_forge --dry-run add zlib/1.3.1 --conan --cmake-package ZLIB --cmake-target ZLIB::ZLIB
+  [ "$status" -eq 0 ]
+  [ "$(cat "$FORGE_TEST_CONAN_LOCK_LOG")" = "$first" ]
+  ! grep -Fq '[dependencies.zlib]' Forge.toml
+}
+
+@test "failed automatic lock keeps the prior lock and permits retry after sync" {
+  mock_conan_lock
+  run_forge add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  [ "$status" -eq 0 ]
+  cp conan.lock previous.lock
+  export FORGE_TEST_FAIL_LOCK=1
+  run_forge add zlib/1.3.1 --conan --cmake-package ZLIB --cmake-target ZLIB::ZLIB
+  [ "$status" -eq 4 ]
+  [[ "$output" == *'manifest edit and sync saved'* ]]
+  grep -Fxq 'zlib/1.3.1' conanfile.txt
+  cmp conan.lock previous.lock
+  unset FORGE_TEST_FAIL_LOCK
+  run_forge add zlib/1.3.1 --conan --cmake-package ZLIB --cmake-target ZLIB::ZLIB
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'already linked'*'wrote conan.lock'* ]]
 }

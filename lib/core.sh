@@ -24,7 +24,21 @@ EXIT_CONFLICT=6
 # Data goes to stdout; diagnostics/progress go to stderr.
 out()     { printf '%s\n' "$*"; }
 status()  { (( FORGE_QUIET )) || printf '%s\n' "$*" >&2; }
-progress() { status "[ ] $*"; }
+FORGE_PROGRESS_STEP=""
+progress() { FORGE_PROGRESS_STEP="$*"; }
+
+# Report a step once its outcome is known, keeping subprocess output independent.
+progress_finish() {
+  local code="${1:-0}" mark
+  [[ -n "${FORGE_PROGRESS_STEP}" ]] || return 0
+  if (( code == 0 )); then
+    mark=$(ui_green '✓')
+  else
+    mark=$(ui_red '✗')
+  fi
+  status "[${mark}] ${FORGE_PROGRESS_STEP}"
+  FORGE_PROGRESS_STEP=""
+}
 warn()    { printf '%s: %s\n' "$(ui_yellow warning)" "$*" >&2; }
 fail()    { printf '%s: %s\n' "$(ui_red error)" "$*" >&2; }
 
@@ -32,6 +46,7 @@ fail()    { printf '%s: %s\n' "$(ui_red error)" "$*" >&2; }
 die() {
   local code="$1"
   shift
+  progress_finish "${code}"
   fail "$*"
   exit "${code}"
 }
@@ -87,6 +102,27 @@ forge_jobs() {
 }
 
 FORGE_TMP_DIRS=()
+FORGE_BUILD_LOCK=""
+
+build_lock_path() {
+  printf '%s/.%s.forge-lock' "${1%/*}" "${1##*/}"
+}
+
+build_lock_acquire() {
+  (( ! FORGE_DRY_RUN )) || return 0
+  local lock
+  lock=$(build_lock_path "$1")
+  mkdir -p -- "${lock%/*}" || die "${EXIT_OTHER}" "could not prepare the build directory"
+  mkdir -- "${lock}" 2>/dev/null \
+    || die "${EXIT_CONFLICT}" "another build is active, or the lock already exists: ${lock}"
+  FORGE_BUILD_LOCK="${lock}"
+}
+
+build_lock_release() {
+  [[ -n "${FORGE_BUILD_LOCK}" ]] || return 0
+  rmdir -- "${FORGE_BUILD_LOCK}" || warn "could not remove build lock ${FORGE_BUILD_LOCK}"
+  FORGE_BUILD_LOCK=""
+}
 
 # Register a temporary directory for the exit trap.
 forge_add_tmpdir() {
@@ -95,6 +131,7 @@ forge_add_tmpdir() {
 
 # Remove temporary directories registered during this invocation.
 forge_cleanup_tmpdirs() {
+  build_lock_release
   local d
   for d in "${FORGE_TMP_DIRS[@]}"; do
     [[ -n "${d}" && -d "${d}" ]] && rm -rf -- "${d}"

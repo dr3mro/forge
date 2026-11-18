@@ -1,6 +1,6 @@
 # Getting started
 
-## 1. Install the toolchain
+## 1. Install Forge
 
 Forge needs Bash 4+, CMake 3.25+, Ninja, Git, jq 1.6+ and Python 3.11+
 (for the TOML parser). Conan 2 is needed only when you declare Conan
@@ -9,8 +9,9 @@ dependencies; clang-format is needed only for `forge fmt`.
 macOS (Homebrew):
 
 ```bash
-brew install bash cmake ninja git jq shellcheck bats-core
-python3 -m pip install --upgrade 'conan>=2'
+brew install bash cmake ninja git jq shellcheck bats-core pipx
+pipx install 'conan>=2,<3'
+pipx ensurepath
 # macOS ships Bash 3.2; put Homebrew Bash first on PATH:
 export PATH="/opt/homebrew/bin:$PATH"
 ```
@@ -18,12 +19,20 @@ export PATH="/opt/homebrew/bin:$PATH"
 Ubuntu:
 
 ```bash
-sudo apt-get install -y cmake ninja-build git jq shellcheck bats python3 python3-pip
-python3 -m pip install --upgrade 'conan>=2'
+sudo apt-get install -y cmake ninja-build git jq shellcheck bats python3 pipx
+pipx install 'conan>=2,<3'
+pipx ensurepath
 ```
 
-Verify everything: `forge doctor`. It reports each tool, the required minimum
-and an actionable install hint, exiting 3 if anything is missing.
+With Git available, install Forge from GitHub.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh | sh
+```
+
+Open a new Bash or Zsh shell to load `~/.local/bin` on PATH, then run
+`forge doctor` to verify the toolchain. For local installs
+and alternate Git sources, see the [installer options](../README.md#install).
 
 ## 2. Create a project
 
@@ -40,7 +49,10 @@ author email. Press Enter to use the directory name and version `0.1.0`, or
 supply a version with one to four dot-separated numbers. The last three
 fields are optional. Forge writes the description to the manifest and README
 and adds the supplied author information to generated C++ sources, headers,
-and tests. Scripts can pipe five newline-terminated responses in the same order.
+and tests. Scripts can pipe one newline-terminated response per omitted
+field in the same order. A named `forge new` uses defaults on empty
+noninteractive input. If a response stream starts and ends early, Forge
+cancels before writing project files.
 
 Both commands create Zed and VS Code tasks for building and testing with Forge,
 plus a **Forge: Debug** launch configuration. VS Code requires the CodeLLDB
@@ -52,15 +64,14 @@ extension (`vadimcn.vscode-lldb`).
 cd hello
 forge build              # configure via preset, compile
 forge run                # use the manifest's default profile
-forge run --debug --bin hello  # choose a profile and executable
+forge run --build --debug --bin hello  # build and run the selected executable
 forge run -- arg1 arg2   # arguments after -- are forwarded exactly
 forge test               # CTest with --output-on-failure
 ```
 
-Build directories are `target/<profile>-<fingerprint>/`. The fingerprint covers
-the compiler, generator, architecture, profile, Conan profiles, sanitizer flags
-and toolchain file, so incompatible caches are never reused. Debug and release
-are always separate (`forge build --release`).
+Debug and Release build in `target/debug/` and `target/release/`. Forge
+refreshes the CMake cache in place when the toolchain or dependency inputs
+change. Sanitizer builds stay under `target/sanitizers/`.
 
 After building, `forge run --debug` or `forge run --release` selects the current
 module’s sole application. A module can use artifacts built at the workspace

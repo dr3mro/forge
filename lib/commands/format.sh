@@ -49,10 +49,12 @@ cmd_fmt() {
   if (( check )); then
     (cd "${FORGE_ROOT}" && clang-format --dry-run --Werror "${unique[@]}") \
       || die "${EXIT_BUILD}" "format check failed"
+    progress_finish
     out "format check ok (${#unique[@]} files)"
   else
     (cd "${FORGE_ROOT}" && clang-format -i "${unique[@]}") \
       || die "${EXIT_OTHER}" "clang-format failed"
+    progress_finish
     out "formatted ${#unique[@]} file(s)"
   fi
 }

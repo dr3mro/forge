@@ -33,3 +33,31 @@ load_forge_libs() {
   # shellcheck disable=SC1091
   source "${FORGE_PROJECT_DIR}/lib/_load.sh"
 }
+
+# Mock lock resolution without network or a populated Conan cache.
+mock_conan_lock() {
+  local dir="${BATS_TEST_TMPDIR}/lock-bin"
+  export FORGE_TEST_CONAN_DELEGATE
+  FORGE_TEST_CONAN_DELEGATE=$(command -v conan || true)
+  export FORGE_TEST_CONAN_LOCK_LOG="${BATS_TEST_TMPDIR}/lock-invocations"
+  mkdir -p "$dir"
+  cat > "$dir/conan" <<'SH'
+#!/bin/sh
+case $1 in
+  --version) printf 'Conan version 2.33.0\n' ;;
+  lock)
+    shift
+    [ "$1" = create ] || exit 98
+    printf '%s\n' "$*" >> "$FORGE_TEST_CONAN_LOCK_LOG"
+    for arg do
+      case $arg in
+        --lockfile-out=*) printf '{"requires":[]}\n' > "${arg#*=}" ;;
+      esac
+    done
+    [ "${FORGE_TEST_FAIL_LOCK:-0}" = 0 ] ;;
+  *) [ -n "$FORGE_TEST_CONAN_DELEGATE" ] && exec "$FORGE_TEST_CONAN_DELEGATE" "$@" ;;
+esac
+SH
+  chmod +x "$dir/conan"
+  export PATH="$dir:$PATH"
+}

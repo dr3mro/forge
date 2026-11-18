@@ -4,7 +4,7 @@
 # API:
 #   state_init               # create dirs + state.json once
 #   state_load               # set FORGE_STATE_PATH, validate presence
-#   state_read KEY           # top-level string value
+#   state_read KEY [FILE]           # top-level string value
 #   state_set KEY VALUE
 #   state_file_hash REL      # recorded hash for a managed file (empty if none)
 #   state_set_file_hash REL HASH
@@ -19,9 +19,9 @@ FORGE_STATE_PATH=""
 state_init() {
   local root="${FORGE_ROOT:-${PWD}}" d
   for d in base proposals backups; do
-    mkdir -p "${root}/.forge/${d}"
+    mkdir -p "${root}/.forge/${d}" || return 1
   done
-  mkdir -p "${root}/target"
+  mkdir -p "${root}/target" || return 1
   FORGE_STATE_PATH="${root}/.forge/state.json"
   if [[ ! -f "${FORGE_STATE_PATH}" ]]; then
     jq -n '{version: 1, template_id: "base", template_version: "1.0.0", manifest: "", files: {}}' \
@@ -38,7 +38,7 @@ state_load() {
 
 # Read a top-level value from the state document.
 state_read() {
-  jq -r --arg k "$1" '.[$k] // empty' "${FORGE_STATE_PATH}"
+  jq -r --arg k "$1" '.[$k] // empty' "${2:-${FORGE_STATE_PATH}}"
 }
 
 # Atomically update a top-level value in the state document.
@@ -73,11 +73,11 @@ state_set_manifest_sha() {
 # Snapshot the freshly generated files as the new base, and record their hashes.
 state_record_generated() {
   local root="${FORGE_ROOT}" rel
-  state_set_manifest_sha "$(sha256_file "${root}/Forge.toml")"
+  state_set_manifest_sha "$(sha256_file "${root}/Forge.toml")" || return 1
   while IFS= read -r rel; do
-    [[ -n "${rel}" ]] || continue
-    mkdir -p "${root}/.forge/base/$(dirname -- "${rel}")"
-    cp "${root}/${rel}" "${root}/.forge/base/${rel}"
-    state_set_file_hash "${rel}" "$(sha256_file "${root}/${rel}")"
+    if [[ "${rel}" == conanfile.txt ]] && ! conan_has_deps; then continue; fi
+    mkdir -p "${root}/.forge/base/$(dirname -- "${rel}")" || return 1
+    cp "${root}/${rel}" "${root}/.forge/base/${rel}" || return 1
+    state_set_file_hash "${rel}" "$(sha256_file "${root}/${rel}")" || return 1
   done < <(cmake_managed_files)
 }

@@ -50,9 +50,13 @@ teardown() {
 @test "one target builds with Conan, Git and path dependencies" {
   cp -R "${WORK}/logger" libs-logger
   run_forge --no-color add fmt --source conan --ref fmt/12.1.0 \
-    --cmake-target fmt::fmt-header-only
+    --cmake-target fmt::fmt-header-only --option header_only=True
   [ "$status" -eq 0 ]
-  printf '\n[dependencies.fmt.conan_options]\nheader_only = true\n' >> Forge.toml
+  python3 - <<'PYTHON'
+from pathlib import Path
+manifest = Path("Forge.toml")
+manifest.write_text(manifest.read_text().replace('header_only = "True"', 'header_only = true'))
+PYTHON
   run_forge --no-color add gdep --source git --url "file://${GITREPO}" \
     --rev "${SHA}" --cmake-target gdep::gdep
   [ "$status" -eq 0 ]
@@ -114,6 +118,9 @@ EOF
 }
 
 @test "Conan shortcut links only the root application and builds with real Conan" {
+  run_forge --no-color build
+  [ "$status" -eq 0 ]
+  ! grep -q 'fmt' compile_commands.json
   run_forge --no-color --offline add fmt --conan
   [ "$status" -eq 0 ]
   grep -Fq 'cmake_target = "fmt::fmt-header-only"' Forge.toml
@@ -127,14 +134,18 @@ EOF
   run_forge --no-color add fmt/12.2.0 --conan
   [ "$status" -eq 6 ]
   cmp before.toml Forge.toml
-  run_forge --no-color deps lock
-  [ "$status" -eq 0 ]
+  [ -f conan.lock ]
   cat > src/main.cpp <<'CPP'
 #include <fmt/format.h>
 int main() { return fmt::format("{}", 42) == "42" ? 0 : 1; }
 CPP
   run_forge --no-color build
   [ "$status" -eq 0 ]
+  jq -e 'any(.[]; (.file | endswith("/src/main.cpp")) and (.command | contains("/include")) and (.command | contains(".conan") or contains("/p/")))' compile_commands.json
+  if command -v clangd >/dev/null 2>&1; then
+    run clangd --check=src/main.cpp
+    [ "$status" -eq 0 ]
+  fi
   run_forge --no-color run
   [ "$status" -eq 0 ]
 }
@@ -142,24 +153,109 @@ CPP
 @test "exact Conan shortcut from member source links the member only and syncs root" {
   run_forge --no-color generate lib mathlib
   [ "$status" -eq 0 ]
+  [ ! -e conanfile.txt ]
+  [ ! -e libs/mathlib/conanfile.txt ]
   cd libs/mathlib/src
   run_forge --no-color --offline add fmt/12.1.0 --conan
   [ "$status" -eq 0 ]
   grep -Fq 'target_link_libraries(mathlib PRIVATE fmt::fmt-header-only)' ../cmake/Targets.cmake
   ! grep -Fq 'fmt::fmt-header-only' ../../../cmake/Targets.cmake
   grep -Fxq 'fmt/12.1.0' ../../../conanfile.txt
-  cat > mathlib.cpp <<'CPP'
-#include "mathlib.hpp"
+  grep -Fxq 'fmt/12.1.0' ../conanfile.txt
+  cat >> mathlib.cpp <<'CPP'
 #include <fmt/format.h>
-namespace mathlib {
-int add(int a, int b) { return fmt::format("{}", a + b).empty() ? 0 : a + b; }
-}
+static_assert(FMT_VERSION > 0);
 CPP
   cd ../../..
-  run_forge --no-color deps lock
-  [ "$status" -eq 0 ]
+  [ -f conan.lock ]
   run_forge --no-color build
   [ "$status" -eq 0 ]
   run_forge --no-color test
   [ "$status" -eq 0 ]
+}
+
+@test "mixed Conan and SQLite builds discard old duplicate presets and preserve custom presets" {
+  run_forge add fmt --conan --offline
+  [ "$status" -eq 0 ]
+  [ -f conan.lock ]
+  run_forge build
+  [ "$status" -eq 0 ]
+  [ ! -e CMakeUserPresets.json ]
+
+  local old
+  old=$(find target -name CMakePresets.json -print -quit)
+  [ -f "$old" ]
+  mkdir -p target/debug-000000000000
+  cp "$old" target/debug-000000000000/CMakePresets.json
+  printf '{"version":4,"configurePresets":[{"name":"custom","hidden":true}]}\n' > custom-presets.json
+  jq -n --arg old "$old" '{
+    version: 4, vendor: {conan: {}, "test.example": {}},
+    include: [$old, "target/debug-000000000000/CMakePresets.json", "custom-presets.json"]
+  }' > CMakeUserPresets.json
+  run cmake --list-presets
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'Duplicate preset'*'conan-debug'* ]]
+
+  export VCPKG_ROOT="$BATS_TEST_TMPDIR/vcpkg fixture"
+  mkdir -p "$VCPKG_ROOT/scripts/buildsystems" "$VCPKG_ROOT/packages/unofficial-sqlite3"
+  printf '#!/bin/sh\nexit 0\n' > "$VCPKG_ROOT/vcpkg"
+  chmod +x "$VCPKG_ROOT/vcpkg"
+  cat > "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" <<'CMAKE'
+if(VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
+  include("${VCPKG_CHAINLOAD_TOOLCHAIN_FILE}")
+endif()
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_LIST_DIR}/../../packages")
+CMAKE
+  cat > "$VCPKG_ROOT/packages/unofficial-sqlite3/unofficial-sqlite3-config.cmake" <<'CMAKE'
+if(NOT TARGET unofficial::sqlite3::sqlite3)
+  add_library(unofficial::sqlite3::sqlite3 INTERFACE IMPORTED)
+  set_property(TARGET unofficial::sqlite3::sqlite3 PROPERTY INTERFACE_COMPILE_DEFINITIONS SQLITE_VCPKG_FIXTURE)
+endif()
+CMAKE
+  run_forge add sqlite3 --vcpkg
+  [ "$status" -eq 0 ]
+  cat > src/main.cpp <<'CPP'
+#include <fmt/format.h>
+#ifndef SQLITE_VCPKG_FIXTURE
+#error "SQLite must come from the vcpkg package"
+#endif
+int main() { return fmt::format("{}", 42) == "42" ? 0 : 1; }
+CPP
+
+  run_forge build --release
+  [ "$status" -eq 0 ]
+  jq -e '.include == ["custom-presets.json"] and (.vendor | has("test.example"))' CMakeUserPresets.json
+  run_forge build
+  [ "$status" -eq 0 ]
+  jq -e '.include == ["custom-presets.json"]' CMakeUserPresets.json
+  run_forge run --release
+  [ "$status" -eq 0 ]
+}
+
+@test "sanitizer builds and deps status read a valid Conan lock without prior sync" {
+  run_forge --offline add fmt --conan --target mixed_tests
+  [ "$status" -eq 0 ]
+  run_forge --offline deps lock
+  [ "$status" -eq 0 ]
+  run_forge deps status --format json
+  [ "$status" -eq 0 ]
+  jq -e '.conan_lock == "present"' <<< "$output"
+
+  cat > tests/main.cpp <<'CPP'
+#include <fmt/format.h>
+int main() { return fmt::format("{}", 42) == "42" ? 0 : 1; }
+CPP
+  run_forge --offline test --sanitize address
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'tests ok'* ]]
+  [ -f target/sanitizers/address/debug/.forge-conan/conan_toolchain.cmake ]
+
+  python3 - <<'PY'
+from pathlib import Path
+path = Path("Forge.toml")
+path.write_text(path.read_text().replace('header_only = "True"', 'header_only = "False"'))
+PY
+  run_forge --offline test --sanitize address
+  [ "$status" -eq 4 ]
+  [[ "$output" == *'conan.lock is stale'* ]]
 }

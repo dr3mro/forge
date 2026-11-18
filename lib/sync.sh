@@ -69,10 +69,10 @@ sync_prepare() {
           # single `conan install` covers the whole workspace.
           conan_prepare_requirements "${FORGE_SYNC_ROOT}"
           FORGE_CONAN_REQUIREMENTS_MODE="graph"
-          cmake_render_all "${tmp}"
+          cmake_render_all "${tmp}" || rc=2
           FORGE_CONAN_REQUIREMENTS_MODE="local"
         else
-          cmake_render_all "${tmp}"
+          cmake_render_all "${tmp}" || rc=2
         fi
         FORGE_SYNC_TMP_BY_NODE["${node}"]="${tmp}"
       fi
@@ -108,6 +108,13 @@ sync_detect_drift() {
       cur="${node}/${rel}"
       new="${FORGE_SYNC_TMP_BY_NODE[${node}]}/${rel}"
       recorded=$(_sync_state_file_hash "${rel}" "${state}")
+      if [[ "${rel}" == conanfile.txt && ! -f "${new}" ]]; then
+        if [[ -n "${recorded}" ]]; then
+          FORGE_SYNC_MESSAGES+=("${label}: Conan recipe no longer required: ${rel}")
+          drift=1
+        fi
+        continue
+      fi
       if [[ ! -f "${cur}" ]]; then
         FORGE_SYNC_MESSAGES+=("${label}: missing file: ${rel}")
         drift=1
@@ -139,6 +146,14 @@ sync_print_diff() {
       [[ -n "${rel}" ]] || continue
       cur="${node}/${rel}"
       new="${FORGE_SYNC_TMP_BY_NODE[${node}]}/${rel}"
+      if [[ ! -f "${new}" ]]; then
+        local recorded
+        recorded=$(_sync_state_file_hash "${rel}" "${node}/.forge/state.json")
+        if [[ -n "${recorded}" && -f "${cur}" && "$(sha256_file "${cur}")" == "${recorded}" ]]; then
+          diff -u -- "${cur}" /dev/null || true
+        fi
+        continue
+      fi
       if [[ -f "${cur}" ]]; then
         diff -u -- "${cur}" "${new}" || true
       else
@@ -155,12 +170,15 @@ sync_apply() {
   progress "Checking workspace sync state"
   local rc=0
   sync_detect_drift || rc=$?
+  case "${rc}" in
+    0|1) progress_finish ;;
+    6) die "${EXIT_CONFLICT}" "workspace state is incomplete" ;;
+    *) die "${EXIT_CONFLICT}" "could not render workspace templates" ;;
+  esac
   if (( rc == 0 )); then
     out "nothing to sync"
     return 0
   fi
-  (( rc == 2 )) && die "${EXIT_CONFLICT}" "could not render workspace templates"
-  (( rc == 6 )) && die "${EXIT_CONFLICT}" "workspace state is incomplete"
 
   if (( FORGE_DRY_RUN )); then
     out "dry-run: would apply the following changes:"
@@ -171,6 +189,7 @@ sync_apply() {
   confirm_action "Apply Forge sync changes across the workspace?" \
     || die "${EXIT_CONFLICT}" "sync aborted"
 
+  progress "Applying workspace changes"
   local project_path member_path real_root
   real_root=$(cd -- "${FORGE_SYNC_ROOT}" && pwd -P) \
     || die "${EXIT_CONFLICT}" "could not resolve the workspace root"
@@ -182,7 +201,6 @@ sync_apply() {
     sync_check_destinations "${project_path}"
   done
 
-  progress "Applying workspace changes"
   local node rel cur base new state recorded cur_hash new_hash merged backup
   local proposal_dir backup_dir label conflict=0
   for node in "${FORGE_GRAPH_NODES[@]}"; do
@@ -199,6 +217,42 @@ sync_apply() {
       base="${node}/.forge/base/${rel}"
       new="${FORGE_SYNC_TMP_BY_NODE[${node}]}/${rel}"
       recorded=$(_sync_state_file_hash "${rel}" "${state}")
+      if [[ "${rel}" == conanfile.txt ]]; then
+        if [[ ! -f "${new}" ]]; then
+          [[ -n "${recorded}" ]] || continue
+          if [[ -f "${cur}" && "$(sha256_file "${cur}")" == "${recorded}" ]]; then
+            backup="${backup_dir}/conanfile.txt.$(date +%s).$$"
+            mv -- "${cur}" "${backup}" \
+              || die "${EXIT_OTHER}" "could not retire ${label}/${rel}"
+            out "removed unused ${label}/${rel} (backup: ${backup#"${node}"/})"
+          elif [[ -e "${cur}" ]]; then
+            warn "keeping locally edited ${label}/${rel} as a user-owned file"
+          fi
+          rm -f -- "${base}" || die "${EXIT_OTHER}" "could not remove the unused Conan recipe base"
+          jq 'del(.files["conanfile.txt"])' "${state}" | atomic_write "${state}" \
+            || die "${EXIT_OTHER}" "could not update Conan recipe state"
+          continue
+        fi
+        if [[ -z "${recorded}" ]]; then
+          new_hash=$(sha256_file "${new}")
+          if [[ -e "${cur}" ]]; then
+            if [[ ! -f "${cur}" || "$(sha256_file "${cur}")" != "${new_hash}" ]]; then
+              out "conflict: ${label}/${rel} (user-owned recipe)"
+              atomic_write "${proposal_dir}/conanfile.txt.patch" < "${new}" \
+                || die "${EXIT_OTHER}" "could not write Conan recipe proposal"
+              conflict=1
+              continue
+            fi
+          else
+            (set -o noclobber; cat "${new}" > "${cur}") \
+              || die "${EXIT_OTHER}" "could not create ${label}/${rel}"
+          fi
+          atomic_write "${base}" < "${new}" || die "${EXIT_OTHER}" "could not record Conan recipe base"
+          jq --arg hash "${new_hash}" '.files["conanfile.txt"] = $hash' "${state}" | atomic_write "${state}" \
+            || die "${EXIT_OTHER}" "could not record Conan recipe state"
+          continue
+        fi
+      fi
       new_hash=$(sha256_file "${new}")
       if [[ ! -f "${cur}" || ! -f "${base}" ]]; then
         out "conflict: ${label}/${rel} (missing current or base copy)"
@@ -245,6 +299,7 @@ sync_apply() {
       || die "${EXIT_OTHER}" "could not update manifest state for ${label}"
   done
 
+  progress_finish "${conflict}"
   (( conflict )) && return "${EXIT_CONFLICT}"
   out "sync applied across $((${#FORGE_GRAPH_NODES[@]})) project(s)"
   return 0

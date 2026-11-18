@@ -30,7 +30,7 @@ teardown() {
   run_forge --no-color sync --apply --yes >/dev/null
   run_forge --no-color build
   [ "$status" -eq 0 ]
-  [ -x target/debug-*/tool ] || [ -n "$(find target -name tool -type f -perm -u+x -print -quit)" ]
+  [ -x target/debug/ws_bins_tool/tool ]
 }
 
 @test "member edits automatically sync the enclosing workspace" {
@@ -123,4 +123,18 @@ PY
   run_forge generate lib --help
   [ "$status" -eq 0 ]
   [[ "$output" == *'--namespace NAME'* ]]
+}
+
+@test "nested C++ members use the root application namespace in header and source" {
+  run_forge generate lib parent
+  [ "$status" -eq 0 ]
+  cd libs/parent
+  run_forge generate lib child
+  [ "$status" -eq 0 ]
+  local header=libs/child/include/child.hpp source=libs/child/src/child.cpp
+  grep -Fxq 'namespace app2 {' "$header"
+  grep -Fxq 'namespace app2 {' "$source"
+  grep -Fxq '  virtual ~child();' "$header"
+  grep -Fxq 'child::~child() = default;' "$source"
+  ! grep -E '\badd\(' "$header" "$source"
 }

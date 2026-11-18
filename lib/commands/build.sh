@@ -5,13 +5,28 @@
 # Shared configure+compile routine (also used by sanitizer test builds).
 forge_perform_build() {
   local build_dir="$1" profile="$2" gen="$3" toolchain="${4:-}" target="${5:-}"
-  local vcpkg_manifest install=ON
+  local vcpkg_manifest fingerprint cached="" fresh=0 stamp="${build_dir}/.forge-config"
   vcpkg_manifest=$(vcpkg_workspace_manifest) || die "${EXIT_DEP}" "could not resolve vcpkg manifest"
-  (( ! FORGE_OFFLINE )) || install=OFF
-  if ! cmake_is_configured "${build_dir}" "${gen}" ||
-    { [[ -n "${vcpkg_manifest}" ]] && ! grep -Fxq "VCPKG_MANIFEST_INSTALL:BOOL=${install}" "${build_dir}/CMakeCache.txt"; }; then
-    progress "Configuring CMake (${profile})"
-    cmake_configure "${build_dir}" "${profile}" "${gen}" "${toolchain}"
+  fingerprint=$(compute_fingerprint "${profile}" "${toolchain}" "${vcpkg_manifest}") \
+    || die "${EXIT_DEP}" "could not compute build fingerprint"
+  if [[ -n "${vcpkg_manifest}" ]]; then fingerprint+=":offline=${FORGE_OFFLINE}"; fi
+  if (( ! FORGE_DRY_RUN )); then
+    conan_prune_user_presets \
+      || die "${EXIT_CONFLICT}" "could not refresh Conan's generated preset includes"
+  fi
+  [[ ! -f "${stamp}" ]] || IFS= read -r cached < "${stamp}"
+  if [[ "${cached}" != "${fingerprint}" ]] || ! cmake_is_configured "${build_dir}" "${gen}"; then
+    if [[ -f "${build_dir}/CMakeCache.txt" && "${cached}" != "${fingerprint}" ]]; then fresh=1; fi
+    if (( ! FORGE_DRY_RUN )); then
+      progress "Configuring CMake (${profile})"
+      rm -f -- "${stamp}" || die "${EXIT_CONFLICT}" "could not invalidate build fingerprint"
+    fi
+    cmake_configure "${build_dir}" "${profile}" "${toolchain}" "${vcpkg_manifest}" "${fresh}"
+    if (( ! FORGE_DRY_RUN )); then
+      printf '%s\n' "${fingerprint}" | atomic_write "${stamp}" \
+        || die "${EXIT_OTHER}" "could not record build fingerprint"
+      progress_finish
+    fi
   else
     status "reusing configured build: ${build_dir#"${FORGE_ROOT}"/}"
   fi
@@ -23,7 +38,8 @@ forge_perform_build() {
   fi
   progress "Compiling ${target:-project}"
   run_cmd cmake "${bargs[@]}" || die "${EXIT_BUILD}" "build failed"
-  link_compile_commands "${build_dir}"
+  progress_finish
+  if [[ -z "${FORGE_SANITIZER}" ]]; then link_compile_commands "${build_dir}"; fi
 }
 
 # Validate project state and build the selected profile or target.
@@ -52,6 +68,20 @@ cmd_build() {
 
   manifest_load
 
+  local profile
+  if (( release )); then
+    profile="release"
+  elif [[ -n "${debug_target}" ]]; then
+    profile="debug"
+  else
+    profile=$(mq '.build.default_profile // "debug"')
+  fi
+  build_project "${profile}" "${target}" "${toolchain}" "${debug_target}"
+}
+
+# Validate, configure, and build the loaded project for the selected profile.
+build_project() {
+  local profile="$1" target="$2" toolchain="${3:-}" debug_target="${4:-}"
   # Build never regenerates CMake: drift is a hard failure with a repair hint.
   local rc=0
   progress "Checking Forge sync state"
@@ -62,16 +92,10 @@ cmd_build() {
     for m in "${FORGE_SYNC_MESSAGES[@]}"; do fail "  ${m}"; done
     die "${EXIT_CONFLICT}" "run 'forge sync --diff', then 'forge sync --apply --yes'"
   fi
-  (( rc == 2 )) && die "${EXIT_CONFLICT}" "could not check Forge sync state"
+  (( rc == 0 )) || die "${EXIT_CONFLICT}" "could not check Forge sync state"
+  progress_finish
 
-  local profile gen fp build_dir
-  if (( release )); then
-    profile="release"
-  elif [[ -n "${debug_target}" ]]; then
-    profile="debug"
-  else
-    profile=$(mq '.build.default_profile // "debug"')
-  fi
+  local gen build_dir
   gen=$(normalize_generator "$(mq '.build.generator // "Ninja"')")
 
   [[ -z "${toolchain}" || -f "${toolchain}" ]] \
@@ -83,18 +107,20 @@ cmd_build() {
     "${FORGE_ROOT}/CMakePresets.json" >/dev/null 2>&1 \
     || die "${EXIT_USAGE}" "no CMake preset for profile '${profile}' (expected debug or release)"
 
-  fp=$(compute_fingerprint "${profile}" "${toolchain}") || die "${EXIT_DEP}" "could not compute build fingerprint"
-  build_dir="${FORGE_ROOT}/target/${profile}-${fp}"
+  build_dir=$(resolve_build_dir "${profile}") || die "${EXIT_USAGE}" "invalid build profile: ${profile}"
+  cmake_check_build_path "${build_dir}"
+  build_lock_acquire "${build_dir}"
 
   # Mixed policy: Conan installs first, then CMake configures and FetchContent runs.
   local effective_toolchain="${toolchain}"
   if conan_graph_has_deps; then
     conan_prepare_requirements "${FORGE_ROOT}"
     FORGE_CONAN_REQUIREMENTS_MODE="graph"
-    conan_install "${build_dir}" "${profile}"
+    cmake_check_build_path "${build_dir}/.forge-conan"
+    conan_install "${build_dir}/.forge-conan" "${profile}"
     FORGE_CONAN_REQUIREMENTS_MODE="local"
     local ctc
-    ctc=$(conan_toolchain_path "${build_dir}")
+    ctc=$(conan_toolchain_path "${build_dir}/.forge-conan")
     [[ -n "${ctc}" ]] && effective_toolchain="${ctc}"
   fi
 
@@ -108,10 +134,11 @@ cmd_build() {
   if [[ -n "${debug_target}" ]] && (( ! FORGE_DRY_RUN )); then
     link_debug_executable "${debug_target}" "${build_dir}"
   fi
+  build_lock_release
   out "build ok: ${build_dir#"${FORGE_ROOT}"/}"
 }
 
-# Give LLDB a stable executable path while keeping Forge's fingerprinted builds.
+# Keep the stable LLDB launch link when migrating from an older build tree.
 link_debug_executable() {
   local target="$1" build_dir="$2" executable
   executable=$(cmake_executable_path "${target}" "${build_dir}") \
@@ -130,7 +157,7 @@ link = target_dir / ("debug-" + name.name + "-launch")
 destination = os.path.relpath(executable, target_dir)
 if link.is_symlink():
     prior = link.readlink()
-    if not prior.parts or not re.fullmatch(r"debug-[0-9a-f]+", prior.parts[0]) or ".." in prior.parts:
+    if not prior.parts or not re.fullmatch(r"debug(?:-[0-9a-f]{12})?", prior.parts[0]) or ".." in prior.parts:
         sys.exit(f"refusing to overwrite {link}")
 elif link.exists():
     sys.exit(f"refusing to overwrite {link}")

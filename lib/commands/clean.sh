@@ -42,7 +42,7 @@ cmd_clean() {
     confirm_action "Delete all build directories under target/?" \
       || die "${EXIT_CONFLICT}" "clean aborted"
   elif [[ -n "${profile}" ]]; then
-    for d in "${target_dir}/${profile}-"*; do
+    for d in "${target_dir}/${profile}" "${target_dir}/${profile}-"* "${target_dir}/sanitizers/"*/"${profile}"; do
       [[ -d "${d}" ]] && dirs+=("${d}")
     done
   else
@@ -57,11 +57,20 @@ cmd_clean() {
       fail "refusing unsafe path: ${d}"
       continue
     fi
+    local lock
+    lock=$(build_lock_path "${d}")
+    if [[ -d "${lock}" ]] ||
+      { [[ "${d}" == "${target_dir}/sanitizers" ]] &&
+        [[ -n "$(find "${d}" -name '.*.forge-lock' -type d -print -quit)" ]]; }; then
+      fail "refusing to clean an active build: ${d}"
+      continue
+    fi
     if (( FORGE_DRY_RUN )); then
       status "dry-run: would delete ${d#"${FORGE_ROOT}"/}"
     else
       progress "Removing ${d}"
       rm -rf -- "${d}" || die "${EXIT_OTHER}" "could not delete ${d}"
+      progress_finish
       out "deleted ${d#"${FORGE_ROOT}"/}"
     fi
   done

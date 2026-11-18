@@ -176,7 +176,7 @@ EOF
   run_forge --no-color build
   [ "$status" -eq 0 ]
   local built
-  built=$(find target -maxdepth 1 -type d -name 'debug-*' -print -quit)
+  built=target/debug
   [ -f "$built/CMakeCache.txt" ]
 
   run_forge --no-color clean --profile debug --dry-run
@@ -212,7 +212,7 @@ EOF
   cat > src/main.cpp <<'CPP'
 #include "c_math.h"
 #include "cpp_math.hpp"
-int main() { return c_math_add(2, 3) == cpp_math::add(2, 3) ? 0 : 1; }
+int main() { app::cpp_math math; return c_math_add(2, 3) == 5 ? 0 : 1; }
 CPP
   run_forge --no-color sync --check
   [ "$status" -eq 0 ]
@@ -259,7 +259,7 @@ CPP
   [ "$status" -eq 0 ]
   run_forge generate lib standalone
   [ "$status" -eq 0 ]
-  grep -Fxq 'namespace standalone {' libs/standalone/include/standalone.hpp
+  grep -Fxq 'namespace consumer {' libs/standalone/include/standalone.hpp
 
   cat > src/main.cpp <<'CPP'
 #include <memory>
@@ -269,7 +269,7 @@ CPP
 #include "math.hpp"
 #include "standalone.hpp"
 
-class Derived : public acme::numeric::math_library {
+class Derived : public acme::numeric::math {
  public:
   explicit Derived(bool& destroyed) : destroyed_(destroyed) {}
   ~Derived() override { destroyed_ = true; }
@@ -281,17 +281,16 @@ class Derived : public acme::numeric::math_library {
 int main() {
   bool destroyed = false;
   {
-    std::unique_ptr<acme::numeric::math_library> library =
+    std::unique_ptr<acme::numeric::math> library =
         std::make_unique<Derived>(destroyed);
     auto copy = *library;
     auto moved = std::move(copy);
     copy = *library;
     moved = std::move(copy);
   }
-  return destroyed && acme::numeric::geometry_library::add(2, 3) == 5 &&
-                 standalone::standalone_library::add(2, 3) == 5
-             ? 0
-             : 1;
+  acme::numeric::geometry geometry;
+  consumer::standalone standalone;
+  return destroyed ? 0 : 1;
 }
 CPP
   run_forge build
@@ -311,13 +310,19 @@ CPP
   [ "$status" -eq 0 ]
   run_forge generate lib plugin --dynamic
   [ "$status" -eq 0 ]
+  run_forge generate lib support --c --shared
+  [ "$status" -eq 0 ]
   [ ! -e libs/plugin/.github ]
   grep -Fxq 'type = "static"' libs/archive/Forge.toml
   grep -Fxq 'type = "shared"' libs/plugin/Forge.toml
   cat > src/main.cpp <<'CPP'
 #include "archive.h"
 #include "plugin.hpp"
-int main() { return archive_add(1, 2) == plugin::add(1, 2) ? 0 : 1; }
+#include "support.h"
+int main() {
+  package_app::plugin plugin;
+  return archive_add(1, 2) == support_add(1, 2) ? 0 : 1;
+}
 CPP
   python3 .github/forge/ci.py prepare
   local config
@@ -331,5 +336,112 @@ CPP
     [ "$status" -eq 0 ]
     [[ "$output" == *'bin/package_app'* && "$output" == *'lib/libarchive.a'* ]]
     [[ "$output" =~ lib/libplugin\.(dylib|so) ]]
+    [[ "$output" =~ lib/libsupport\.(dylib|so) ]]
+    [[ "$output" == *plugin_export.h* && "$output" == *support_export.h* ]]
   done
+}
+
+@test "editor compilation database follows Debug and Release and preserves user files" {
+  run_forge build
+  [ "$status" -eq 0 ]
+  [ "$(readlink compile_commands.json)" = "target/compile_commands.json" ]
+  local debug
+  debug=$(readlink target/compile_commands.json)
+  [ "$debug" = debug/compile_commands.json ]
+
+  # Simulate an existing project linked directly to its original build.
+  rm compile_commands.json
+  ln -s "target/debug-000000000000/compile_commands.json" compile_commands.json
+  run_forge build --release
+  [ "$status" -eq 0 ]
+  [ "$(readlink compile_commands.json)" = "target/compile_commands.json" ]
+  [ "$(readlink target/compile_commands.json)" = release/compile_commands.json ]
+  jq -e 'any(.[]; .file | endswith("/src/main.cpp"))' compile_commands.json
+
+  rm compile_commands.json
+  printf 'custom database\n' > compile_commands.json
+  run_forge build
+  [ "$status" -eq 0 ]
+  [ ! -L compile_commands.json ]
+  [ "$(cat compile_commands.json)" = "custom database" ]
+  [[ "$output" == *"leaving user-owned"* ]]
+  run_forge build --link-compile-commands
+  [ "$status" -eq 0 ]
+  [ "$(readlink compile_commands.json)" = "target/compile_commands.json" ]
+  [ "$(readlink target/compile_commands.json)" = "$debug" ]
+}
+
+@test "run --build builds the requested profile and preserves executable arguments and status" {
+  bats_require_minimum_version 1.5.0
+  cat > src/main.cpp <<'CPP'
+#include <iostream>
+int main(int argc, char** argv) {
+#ifdef NDEBUG
+  std::cout << "release";
+#else
+  std::cout << "debug";
+#endif
+  for (int i = 1; i < argc; ++i) std::cout << "|" << argv[i];
+  return 7;
+}
+CPP
+  run --separate-stderr "$FORGE_BASH" "$FORGE_BIN" run --build --release -- --build 'two words'
+  [ "$status" -eq 7 ]
+  [ "$output" = 'release|--build|two words' ]
+  [[ "$stderr" == *'build ok: target/release'* ]]
+  run --separate-stderr "$FORGE_BASH" "$FORGE_BIN" run --build --debug
+  [ "$status" -eq 7 ]
+  [ "$output" = 'debug' ]
+
+  printf 'this will not compile\n' > src/main.cpp
+  run --separate-stderr "$FORGE_BASH" "$FORGE_BIN" run --build --release
+  [ "$status" -eq 5 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *'build failed'* ]]
+}
+
+@test "run --build uses the workspace build tree and dry-run leaves it untouched" {
+  run_forge generate bin worker
+  [ "$status" -eq 0 ]
+  run_forge run --build --bin clean
+  [ "$status" -eq 2 ]
+  cd bins/worker
+  run_forge run --build --dry-run -- --example
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'dry-run: would run worker --example'* ]]
+  [ -z "$(find ../../target -mindepth 1 -print -quit)" ]
+  run_forge run --build
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Hello from worker!'* ]]
+  [ "$(readlink ../../target/compile_commands.json)" = debug/compile_commands.json ]
+}
+
+@test "a changed toolchain refreshes CMake in place without creating fingerprinted build directories" {
+  printf 'set(FORGE_TOOLCHAIN_TEST first CACHE STRING "")\n' > toolchain.cmake
+  run_forge build --toolchain toolchain.cmake
+  [ "$status" -eq 0 ]
+  grep -Fxq 'FORGE_TOOLCHAIN_TEST:STRING=first' target/debug/CMakeCache.txt
+
+  printf 'set(FORGE_TOOLCHAIN_TEST second CACHE STRING "")\n' > toolchain.cmake
+  run_forge build --toolchain toolchain.cmake
+  [ "$status" -eq 0 ]
+  grep -Fxq 'FORGE_TOOLCHAIN_TEST:STRING=second' target/debug/CMakeCache.txt
+  run_forge build --release --toolchain toolchain.cmake
+  [ "$status" -eq 0 ]
+  [ -f target/release/CMakeCache.txt ]
+  [ "$(find target -mindepth 1 -maxdepth 1 -type d | sort)" = $'target/debug\ntarget/release' ]
+}
+
+@test "a second build cannot write to an active profile directory" {
+  mkdir target/.debug.forge-lock
+  run_forge build
+  [ "$status" -eq 6 ]
+  [[ "$output" == *'another build is active'* ]]
+  [ -d target/.debug.forge-lock ]
+  [ ! -e target/debug/CMakeCache.txt ]
+  rmdir target/.debug.forge-lock
+  run_forge build
+  [ "$status" -eq 0 ]
+  [ -f target/debug/CMakeCache.txt ]
+  [ ! -e target/.debug.forge-lock ]
 }

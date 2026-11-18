@@ -24,6 +24,7 @@ workflow_write() {
     (set -o noclobber; cat "${FORGE_HOME}/templates/workflow/${path##*/}.tpl" > "${root}/${path}") \
       || die "${EXIT_OTHER}" "could not write ${path}"
   done < <(workflow_files)
+  progress_finish
 }
 
 cmd_workflow() {

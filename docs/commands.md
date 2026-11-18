@@ -13,7 +13,7 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 | `init [--bin\|--lib] [--git]` | Prompt for project and author details, then scaffold in the current directory |
 | `build [--release] [--target T] [--toolchain F] [--link-compile-commands]` | Validate drift, install Conan graph if needed, configure via preset, compile |
 | `build --debug-target T` | Build an executable with the debug preset and link it to `target/debug-T-launch` for LLDB |
-| `run [--debug\|--release] [--bin N] [-- ARGS]` | Run the current module’s sole application by default. Use `--bin` to select an executable explicitly |
+| `run [--build] [--debug\|--release] [--bin N] [-- ARGS]` | Run the current module’s sole application by default. Use `--build` to compile first and `--bin` to select an executable explicitly |
 | `test [FILTER] [--repeat N] [--sanitize NAME]` | CTest; `--sanitize` uses an isolated build dir |
 | `clean [--profile N] [--all]` | Delete only validated Forge-owned dirs under `target/`; `--all` confirms |
 | `add NAME[/VERSION] --conan [--target T]` | Discover Conan CMake metadata, link a local target, and sync |
@@ -40,8 +40,8 @@ command (before `--`): `--manifest-path PATH`, `--quiet/-q`, `--verbose/-v`,
 and `--email`. C++ library scaffolds also accept `--namespace NAME`. Pass `--defaults` to skip prompts for omitted fields.
 
 Use `forge generate lib math --namespace acme::numeric` to put the generated
-`math_library` class in a custom namespace. It defaults to the member's
-project name. C++ libraries from `new --lib` and `init --lib` use the same
+`math` class in a custom namespace. It defaults to the root
+application project's name. C++ libraries from `new --lib` and `init --lib` use the same
 template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
 to choose library linkage. New root projects automatically receive GitHub
 Actions for Debug and Release on Windows, Linux, and macOS.

@@ -78,7 +78,7 @@ cmd_help() {
   reference_heading 'Common workflows'
   out '  forge new --name hello --git             # Prompt for remaining metadata'
   out '  forge generate lib widget --c            # Add and link a C library'
-  out '  forge add fmt --conan && forge deps lock  # Add and lock a Conan package'
+  out '  forge add fmt --conan                     # Add, sync, and lock a Conan package'
   out '  forge sync --diff && forge sync --apply --yes'
   out '  forge test --sanitize address'
   out '  forge help deps pin                      # Show options and an example'

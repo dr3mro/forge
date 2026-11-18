@@ -115,12 +115,18 @@ validate_cpp_namespace() {
   local -a components
   read -r -a components <<< "${cpp_namespace//::/ }"
   for component in "${components[@]}"; do
-    [[ "${component}" != *__* ]] || die "${EXIT_USAGE}" "reserved C++ namespace identifier: ${component}"
-    case "${component}" in
-      alignas|alignof|and|and_eq|asm|auto|bitand|bitor|bool|break|case|catch|char|char8_t|char16_t|char32_t|class|compl|concept|const|const_cast|consteval|constexpr|constinit|continue|co_await|co_return|co_yield|decltype|default|delete|do|double|dynamic_cast|else|enum|explicit|export|extern|false|float|for|friend|goto|if|inline|int|long|mutable|namespace|new|noexcept|not|not_eq|nullptr|operator|or|or_eq|private|protected|public|register|reinterpret_cast|requires|return|short|signed|sizeof|static|static_assert|static_cast|struct|switch|template|this|thread_local|throw|true|try|typedef|typeid|typename|union|unsigned|using|virtual|void|volatile|wchar_t|while|xor|xor_eq)
-        die "${EXIT_USAGE}" "C++ keyword cannot be used as a namespace: ${component}" ;;
-    esac
+    validate_cpp_identifier "${component}" namespace
   done
+}
+
+# Namespace components and class names cannot be C++ keywords.
+validate_cpp_identifier() {
+  local component="$1" role="$2"
+  [[ "${component}" != *__* && "${component}" != _[A-Z]* ]] || die "${EXIT_USAGE}" "reserved C++ ${role} identifier: ${component}"
+  case "${component}" in
+    alignas|alignof|and|and_eq|asm|auto|bitand|bitor|bool|break|case|catch|char|char8_t|char16_t|char32_t|class|compl|concept|const|const_cast|consteval|constexpr|constinit|continue|co_await|co_return|co_yield|decltype|default|delete|do|double|dynamic_cast|else|enum|explicit|export|extern|false|float|for|friend|goto|if|inline|int|long|mutable|namespace|new|noexcept|not|not_eq|nullptr|operator|or|or_eq|private|protected|public|register|reinterpret_cast|requires|return|short|signed|sizeof|static|static_assert|static_cast|struct|switch|template|this|thread_local|throw|true|try|typedef|typeid|typename|union|unsigned|using|virtual|void|volatile|wchar_t|while|xor|xor_eq)
+      die "${EXIT_USAGE}" "C++ keyword cannot be used as a ${role}: ${component}" ;;
+  esac
 }
 
 # Create source files, editor settings, and generated build files.
@@ -136,14 +142,15 @@ scaffold_project() {
   # Refuse to overwrite any generated path before writing anything.
   local -a targets=(
     "${dir}/Forge.toml" "${dir}/CMakeLists.txt" "${dir}/CMakePresets.json"
-    "${dir}/conanfile.txt" "${dir}/.gitignore" "${dir}/README.md"
+    "${dir}/.gitignore" "${dir}/README.md"
     "${dir}/tests/main.${extension}" "${dir}/version.cpp.in" "${dir}/forge-reference-transaction"
   )
   while IFS= read -r rel; do
-    targets+=("${dir}/${rel}")
+    if [[ "${rel}" != conanfile.txt ]]; then targets+=("${dir}/${rel}"); fi
   done < <(cmake_managed_files)
   if [[ "${kind}" == "lib" ]]; then
-    targets+=("${dir}/src/${name}.${extension}" "${dir}/include/${name}.${header}")
+    targets+=("${dir}/src/${name}.${extension}" "${dir}/include/${name}.${header}"
+      "${dir}/include/${name}_export.h")
   else
     targets+=("${dir}/src/main.cpp")
   fi
@@ -167,6 +174,8 @@ scaffold_project() {
     "${dir}/.forge" "${dir}/target" "${dir}/.zed" "${dir}/.vscode" \
     || die "${EXIT_OTHER}" "could not create project directories"
 
+  progress_finish
+
   progress "Writing editor settings"
   # Libraries launch their test executable in LLDB.
   local debug_target="${name}"
@@ -180,9 +189,13 @@ scaffold_project() {
       || die "${EXIT_OTHER}" "could not write ${config}"
   done
 
+  progress_finish
+
   progress "Writing Forge.toml"
   write_manifest "${dir}" "${name}" "${kind}" "${version}" "${description}" "${author_line}" "${extension}" "${linkage}" \
     || die "${EXIT_OTHER}" "could not write Forge.toml"
+
+  progress_finish
 
   progress "Writing project sources and version template"
   cp "${tpl}/version.cpp.in.tpl" "${dir}/version.cpp.in" \
@@ -192,12 +205,15 @@ scaffold_project() {
     || die "${EXIT_OTHER}" "could not write forge-reference-transaction"
   if [[ "${kind}" == "lib" ]]; then
     scaffold_source_file "${tpl}/lib.${extension}.tpl" "${dir}/src/${name}.${extension}" "${name}" "${author_line}" "${cpp_namespace}"
+    scaffold_source_file "${tpl}/lib_export.h.tpl" "${dir}/include/${name}_export.h" "${name}" "${author_line}"
     scaffold_source_file "${tpl}/lib.${header}.tpl" "${dir}/include/${name}.${header}" "${name}" "${author_line}" "${cpp_namespace}"
     scaffold_source_file "${tpl}/tests_lib.${extension}.tpl" "${dir}/tests/main.${extension}" "${name}" "${author_line}" "${cpp_namespace}"
   else
     scaffold_source_file "${tpl}/main.cpp.tpl" "${dir}/src/main.cpp" "${name}" "${author_line}"
     scaffold_source_file "${tpl}/tests_main.cpp.tpl" "${dir}/tests/main.${extension}" "${name}" "${author_line}"
   fi
+
+  progress_finish
 
   progress "Writing project documentation and ignore rules"
   forge_render_template "${tpl}/.gitignore.tpl" > "${dir}/.gitignore" \
@@ -210,13 +226,15 @@ scaffold_project() {
       || die "${EXIT_OTHER}" "could not add the project description to README.md"
   fi
 
+  progress_finish
+
   FORGE_ROOT="${dir}"
   FORGE_MANIFEST_PATH="${dir}/Forge.toml"
   manifest_load
   progress "Generating CMake files and recording sync state"
-  cmake_render_all "${dir}"
-  state_init
-  state_record_generated
+  cmake_render_all "${dir}" && state_init && state_record_generated \
+    || die "${EXIT_OTHER}" "could not generate CMake files or record sync state"
+  progress_finish
   if (( include_ci )); then workflow_write "${dir}"; fi
 
   if (( git_init )); then
@@ -224,6 +242,7 @@ scaffold_project() {
     require_tool git
     (cd "${dir}" && git init -q) \
       || die "${EXIT_OTHER}" "git init failed in ${dir}"
+    progress_finish
   fi
   if [[ -e "${dir}/.git" ]]; then
     scaffold_version_hook "${dir}"
@@ -244,8 +263,10 @@ scaffold_version_hook() {
     return
   fi
   progress "Installing Git tag version hook"
-  mkdir -p "${hooks}"
+  mkdir -p "${hooks}" \
+    || die "${EXIT_OTHER}" "could not create Git hooks directory"
   (set -o noclobber; cat "${dir}/forge-reference-transaction" > "${hooks}/reference-transaction") \
     && chmod +x "${hooks}/reference-transaction" \
     || die "${EXIT_OTHER}" "could not install Git tag version hook"
+  progress_finish
 }

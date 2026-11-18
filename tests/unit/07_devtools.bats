@@ -52,14 +52,13 @@ teardown() {
   command -v cmake >/dev/null || skip "cmake not installed"
   run_forge --no-color test --sanitize address >/dev/null
   [ "$status" -eq 0 ]
-  local san_dir normal_dir
-  san_dir=$(find target -maxdepth 1 -type d -name 'debug-*' | sort | tail -1)
+  [ -f target/sanitizers/address/debug/CMakeCache.txt ]
+  [ ! -e target/debug ]
   run_forge --no-color build >/dev/null
   [ "$status" -eq 0 ]
-  normal_dir=$(find target -maxdepth 1 -type d -name 'debug-*' ! -path "$san_dir" -print -quit)
-  [ -n "$san_dir" ]
-  [ -n "$normal_dir" ]
-  [ "${san_dir}" != "${normal_dir}" ]
+  [ -f target/debug/CMakeCache.txt ]
+  [ -f target/sanitizers/address/debug/CMakeCache.txt ]
+  [ "$(readlink target/compile_commands.json)" = debug/compile_commands.json ]
 }
 
 @test "development commands report help and reject malformed options" {

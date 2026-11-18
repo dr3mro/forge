@@ -87,10 +87,9 @@ conan_manifest_sha() {
 
 # Compare the recorded lock fingerprint with the current graph.
 conan_lock_stale() {
-  local lock="${FORGE_ROOT}/conan.lock" recorded
-  [[ -f "${lock}" ]] || return 0
-  [[ -f "${FORGE_STATE_PATH}" ]] || return 0
-  recorded=$(state_read conan_lock_manifest_sha)
+  local lock="${FORGE_ROOT}/conan.lock" state="${FORGE_ROOT}/.forge/state.json" recorded
+  [[ -f "${lock}" && -f "${state}" ]] || return 0
+  recorded=$(state_read conan_lock_manifest_sha "${state}") || return 0
   [[ -n "${recorded}" ]] || return 0
   [[ "${recorded}" == "$(conan_manifest_sha)" ]] && return 1
   return 0
@@ -99,7 +98,7 @@ conan_lock_stale() {
 # Resolve the Conan graph and record the lock fingerprint.
 conan_lock_create() {
   conan_check
-  local lock="${FORGE_ROOT}/conan.lock" tmp_dir
+  local lock="${FORGE_ROOT}/conan.lock" tmp_dir signature
   state_load
   if (( FORGE_DRY_RUN )); then
     status "dry-run: would create ${lock#"${FORGE_ROOT}"/}"
@@ -109,16 +108,31 @@ conan_lock_create() {
   tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/forge-conan.XXXXXX") \
     || die "${EXIT_OTHER}" "could not create temp directory"
   forge_add_tmpdir "${tmp_dir}"
+  [[ ! -L "${lock}" && ( ! -e "${lock}" || -f "${lock}" ) ]] \
+    || die "${EXIT_CONFLICT}" "refusing to replace an unsafe conan.lock path"
+  signature=$(conan_manifest_sha) || die "${EXIT_DEP}" "could not fingerprint the Conan graph"
   conan_prepare_requirements "${FORGE_ROOT}"
   FORGE_CONAN_REQUIREMENTS_MODE="graph"
-  cmake_render_all "${tmp_dir}"
+  render_conanfile > "${tmp_dir}/conanfile.txt" \
+    || die "${EXIT_OTHER}" "could not render the Conan lock recipe"
   FORGE_CONAN_REQUIREMENTS_MODE="local"
-  local -a args=(lock create "${tmp_dir}/conanfile.txt" "--lockfile-out=${lock}")
+  local -a args=(lock create "${tmp_dir}/conanfile.txt" "--lockfile-out=${tmp_dir}/conan.lock")
+  if [[ -f "${lock}" ]]; then
+    args+=("--lockfile=${lock}" --lockfile-partial --lockfile-clean)
+  else
+    args+=(--lockfile=)
+  fi
   (( FORGE_OFFLINE )) && args+=(--build=never --no-remote)
   progress "Running Conan ${args[0]}"
   run_cmd conan "${args[@]}" \
     || die "${EXIT_DEP}" "conan lock create failed"
-  state_set conan_lock_manifest_sha "$(conan_manifest_sha)"
+  [[ "${signature}" == "$(conan_manifest_sha)" ]] \
+    || die "${EXIT_CONFLICT}" "Conan dependencies changed while locking; retry"
+  atomic_write "${lock}" < "${tmp_dir}/conan.lock" \
+    || die "${EXIT_OTHER}" "could not publish conan.lock"
+  state_set conan_lock_manifest_sha "${signature}" \
+    || die "${EXIT_OTHER}" "could not record Conan lock state"
+  progress_finish
   out "wrote conan.lock"
 }
 
@@ -140,7 +154,7 @@ conan_install() {
     *)                 bt="Debug" ;;
   esac
   local -a args=(install "${conanfile}" "-of=${build_dir}" "-s=build_type=${bt}"
-    "--lockfile=${lock}")
+    "--lockfile=${lock}" -c "tools.cmake.cmaketoolchain:user_presets=")
   if (( FORGE_OFFLINE )); then
     args+=(--build=never --no-remote)
   else
@@ -149,7 +163,24 @@ conan_install() {
   progress "Running Conan ${args[0]}"
   run_cmd conan "${args[@]}" \
     || die "${EXIT_DEP}" "conan install failed"
+  progress_finish
   status "Conan graph installed for ${bt}"
+}
+
+# Forget Conan's legacy includes of fingerprinted Forge builds. Preserve other
+# includes and only touch a file explicitly marked by Conan.
+conan_prune_user_presets() {
+  local file="${FORGE_ROOT}/CMakeUserPresets.json" filtered
+  [[ -f "${file}" && ! -L "${file}" ]] || return 0
+  filtered=$(jq '
+    def forge_preset:
+      type == "string" and test("^target/(?:[A-Za-z_][A-Za-z0-9_-]*-[a-f0-9]{12}|(?:debug|release)(?:/[.]forge-conan)?)/CMakePresets[.]json$");
+    select(type == "object" and (.vendor | type == "object" and has("conan"))
+      and (.include | type == "array" and any(.[]; forge_preset)))
+    | .include |= map(select(forge_preset | not))
+  ' "${file}" 2>/dev/null) || return 0
+  [[ -n "${filtered}" ]] || return 0
+  printf '%s\n' "${filtered}" | atomic_write "${file}"
 }
 
 # Locate the toolchain file emitted by Conan.

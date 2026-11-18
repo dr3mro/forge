@@ -360,11 +360,19 @@ forge test</pre></div>
 <section id="install"><div class="wrap">
 <p class="eyebrow">Getting started</p><h2>Install Forge</h2><p class="lede">Forge runs on macOS and Linux. Put Bash 4+ on your PATH. Use <code>forge doctor</code> to check CMake, a C++ compiler, Ninja, Git, jq, Python with tomllib, Conan 2, and ShellCheck.</p>
 <div class="columns">
-<div class="card"><h3>From a source directory</h3><p>Run this from the Forge checkout or an unpacked source archive. The installer registers Bash and Zsh completions.</p><div class="snippet"><div class="code-head"><span>Shell</span><button type="button" data-copy="install-code" hidden>Copy</button></div><pre id="install-code">sh install.sh --source .
-export PATH="$HOME/.local/bin:$PATH"
-forge doctor</pre></div></div>
-<div class="card"><h3>From a Git repository</h3><p>When a Forge repository URL is available, substitute your installer and repository URLs. Run <code>forge update</code> to refresh Forge or <code>forge uninstall</code> to remove it and its completions.</p><div class="snippet"><pre>curl -fsSL INSTALLER_URL |
-  sh -s -- --repo REPOSITORY_URL</pre></div></div>
+<div class="card">
+  <h3>Install with curl</h3>
+  <p>The installer fetches the official Forge repository, configures Bash and Zsh completions, and adds <code>~/.local/bin</code> to PATH when needed. Open a new shell and run <code>forge doctor</code>.</p>
+  <div class="snippet">
+    <div class="code-head"><span>Shell</span><button type="button" data-copy="install-code" hidden>Copy</button></div>
+    <pre id="install-code">curl -fsSL https://raw.githubusercontent.com/dr3mro/forge/refs/heads/main/install.sh | sh</pre>
+  </div>
+</div>
+<div class="card">
+  <h3>Choose another source</h3>
+  <p>From a local checkout or unpacked archive, pass its directory to <code>--source</code>. The same option accepts another Git repository URL.</p>
+  <div class="snippet"><pre>sh install.sh --source .</pre></div>
+</div>
 </div></div></section>
 
 <section id="workflows"><div class="wrap">
@@ -373,14 +381,13 @@ forge doctor</pre></div></div>
 <article class="card"><h3>Scaffold or adopt a project</h3><p><code>new</code> creates a directory. <code>init</code> works in the current directory. Each supplied metadata flag skips its prompt. Use <code>--defaults</code> for scripts. Scaffolds provide CMake presets, tests, and Zed and VS Code tasks.</p><pre>forge new --name hello --git
 forge init --lib --name widget --defaults</pre></article>
 <article class="card"><h3>Build, run, and test</h3><p>Build debug or release presets. Forward application arguments after <code>--</code>. Run CTest with a filter or sanitizer. Use the debug target option to create a stable LLDB launch path.</p><pre>forge build --release
-forge run --release --bin hello -- --version
+forge run --build --release --bin hello -- --version
 forge test --sanitize address
 forge build --debug-target hello</pre></article>
-<article class="card"><h3>Declare dependencies</h3><p>Use Conan for locked packages, vcpkg for ports and features, full Git SHAs for FetchContent, or relative paths for local CMake libraries. Edit Conan <code>ref</code> and <code>conan_options</code> in TOML. vcpkg supports <code>features</code>, <code>default_features</code>, and exact versions with a workspace baseline.</p><pre>forge add fmt/12.1.0 --conan
-forge deps lock
+<article class="card"><h3>Declare dependencies</h3><p>Adding Conan packages refreshes the workspace lock. Use vcpkg for ports and features, full Git SHAs for FetchContent, or relative paths for local CMake libraries. Edit Conan <code>ref</code> and <code>conan_options</code> in TOML. vcpkg supports <code>features</code>, <code>default_features</code>, and exact versions with a workspace baseline.</p><pre>forge add fmt/12.1.0 --conan
 forge add zlib --vcpkg --cmake-target ZLIB::ZLIB
 forge deps status --format json</pre></article>
-<article class="card"><h3>Grow a workspace</h3><p>Each member gets its own manifest. Generated libraries link into the parent targets. C++ library scaffolds include a class with defaulted copy and move operations and a virtual destructor. The namespace defaults to the library project name.</p><pre>forge generate lib math --namespace acme::numeric
+<article class="card"><h3>Grow a workspace</h3><p>Each member gets its own manifest. Generated libraries link into the parent targets. C++ library scaffolds include a class with defaulted copy and move operations and a virtual destructor. The namespace defaults to the root application project name for generated members.</p><pre>forge generate lib math --namespace acme::numeric
 forge generate lib codec --c --static
 forge generate lib plugin --shared
 forge generate bin worker
@@ -454,19 +461,20 @@ forge new hello --defaults --version 1.2.3</pre></div></details>
 <dt>--target NAME</dt><dd>Build one CMake target</dd>
 <dt>--toolchain FILE</dt><dd>Use a CMake toolchain file</dd>
 <dt>--debug-target NAME</dt><dd>Build one executable and create its LLDB launch path</dd>
-<dt>--link-compile-commands</dt><dd>Replace the root compilation database link</dd>
+<dt>--link-compile-commands</dt><dd>Allow replacing a user-owned root compilation database</dd>
 </dl>
 <pre>forge build --debug-target hello
 forge build --release --target hello</pre></div></details>
-<details data-command="run"><summary><code>forge run [OPTIONS] [-- ARGS]</code><span>Run a built executable and forward arguments</span></summary>
+<details data-command="run"><summary><code>forge run [OPTIONS] [-- ARGS]</code><span>Run an executable, optionally building it first</span></summary>
 <div class="content">
 <dl>
+<dt>--build</dt><dd>Build the selected application before running it</dd>
 <dt>--release</dt><dd>Select the release build</dd>
 <dt>--debug</dt><dd>Select the debug build</dd>
 <dt>--bin NAME</dt><dd>Select a declared executable</dd>
 <dt>--</dt><dd>Forward remaining arguments to the executable</dd>
 </dl>
-<pre>forge run --release --bin hello -- --version</pre></div></details>
+<pre>forge run --build --release --bin hello -- --version</pre></div></details>
 <details data-command="test"><summary><code>forge test [FILTER] [OPTIONS]</code><span>Run CTest with a filter, repeat count, or sanitizer</span></summary>
 <div class="content">
 <dl>
@@ -565,7 +573,7 @@ forge sync --apply --yes</pre></div></details>
 <dl>
 <dt>--c</dt><dd>Generate C source and a C-compatible header</dd>
 <dt>--cpp</dt><dd>Generate C++ sources (default)</dd>
-<dt>--namespace NAME</dt><dd>Set the C++ library namespace (defaults to its project name)</dd>
+<dt>--namespace NAME</dt><dd>Set the C++ library namespace (defaults to the root project name)</dd>
 <dt>--static</dt><dd>Build a static library (default)</dd>
 <dt>--shared</dt><dd>Build a shared library</dd>
 <dt>--dynamic</dt><dd>Alias for --shared</dd>

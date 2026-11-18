@@ -43,6 +43,8 @@ CMAKE
 #endif
 CPP
   cd ../../..
+  [ ! -e conanfile.txt ]
+  [ ! -e libs/member/conanfile.txt ]
   run_forge --no-color build
   [ "$status" -eq 0 ]
   local manifest
@@ -91,4 +93,31 @@ PY
     .dependencies == [{name:"fmt",features:["feature-a","feature-b"],"default-features":false}] and
     .overrides == [{name:"fmt",version:"11.0.0#1"}]
   ' <<< "$output"
+}
+
+@test "sqlite3 shortcut uses the imported vcpkg target and rejects app targets" {
+  local app
+  app=$(sed -n 's/^name = "\([^"]*\)"$/\1/p' Forge.toml | head -1)
+  cp Forge.toml before.toml
+  run_forge add sqlite3 --vcpkg --cmake-target "$app"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *'names a project target'* ]]
+  cmp before.toml Forge.toml
+
+  run_forge add sqlite3 --vcpkg
+  [ "$status" -eq 0 ]
+  grep -Fxq 'cmake_package = "unofficial-sqlite3"' Forge.toml
+  grep -Fxq 'cmake_target = "unofficial::sqlite3::sqlite3"' Forge.toml
+  grep -Fq "target_link_libraries($app PRIVATE unofficial::sqlite3::sqlite3)" cmake/Targets.cmake
+  python3 - "$app" <<'PY'
+from pathlib import Path
+import sys
+p = Path("Forge.toml")
+p.write_text(p.read_text().replace("unofficial::sqlite3::sqlite3", sys.argv[1]))
+PY
+  run_forge sync --apply --yes
+  [ "$status" -eq 0 ]
+  run_forge build
+  [ "$status" -eq 4 ]
+  [[ "$output" == *"vcpkg cmake_target '$app' names a project target"* ]]
 }

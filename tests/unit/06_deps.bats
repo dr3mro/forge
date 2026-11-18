@@ -23,6 +23,7 @@ EOF
   cd "${WORK}"
   run_forge --no-color new proj >/dev/null
   cd proj
+  mock_conan_lock
 }
 
 teardown() {
@@ -139,7 +140,10 @@ PY
   run_forge remove fmt
   [ "$status" -eq 0 ]
   [[ "$output" == *"sync applied"* ]]
-  ! grep -Fq 'fmt' conanfile.txt cmake/Dependencies.cmake cmake/Targets.cmake
+  [ ! -e conanfile.txt ]
+  [ ! -e .forge/base/conanfile.txt ]
+  jq -e '.files | has("conanfile.txt") | not' .forge/state.json
+  ! grep -Fq 'fmt' cmake/Dependencies.cmake cmake/Targets.cmake
   run_forge sync --check
   [ "$status" -eq 0 ]
 }
@@ -172,4 +176,18 @@ PY
   run_forge --dry-run deps pin gdep --sha "$SHA"
   [ "$status" -eq 0 ]
   [[ "$output" == *"would pin"* ]]
+}
+
+@test "retiring a Conan recipe preserves local edits and stops tracking it" {
+  run_forge add fmt --conan --cmake-package fmt --cmake-target fmt::fmt-header-only
+  [ "$status" -eq 0 ]
+  printf '\n# Keep this local change\n' >> conanfile.txt
+  cp conanfile.txt edited.txt
+  run_forge remove fmt
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'keeping locally edited'* ]]
+  cmp edited.txt conanfile.txt
+  jq -e '.files | has("conanfile.txt") | not' .forge/state.json
+  run_forge sync --check
+  [ "$status" -eq 0 ]
 }

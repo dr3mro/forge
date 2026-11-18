@@ -115,8 +115,9 @@ cmd_doctor() {
   out "$(ui_red "${DOCTOR_FAILURES} required tool(s) missing or too old.")"
   cat >&2 <<'EOF'
 hint (macOS/Homebrew):
-  brew install bash cmake ninja jq shellcheck
-  python3 -m pip install --upgrade 'conan>=2'
+  brew install bash cmake ninja jq shellcheck pipx
+  pipx install 'conan>=2,<3'
+  pipx ensurepath
 Ensure /opt/homebrew/bin (or /usr/local/bin) precedes /bin on PATH.
 EOF
   return "${EXIT_TOOL}"
