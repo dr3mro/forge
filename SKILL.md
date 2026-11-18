@@ -329,9 +329,21 @@ GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
   include stacks, template trees, `-Wall -Wextra -Wpedantic`, and
   `-ferror-limit=3`. Root `add_compile_options` is inherited by workspace
   members added later; non-Clang compilers are untouched.
+- New projects seed `[cmake.variables]` with `FORGE_CODESIGN_IDENTITY = "adhoc"`,
+  `FORGE_CODESIGN_ENTITLEMENTS = "entitlements.plist"`, and `-O0 -g` for both
+  C and C++ debug flags. The managed `cmake/CodeSign.cmake` defines
+  `forge_codesign_target()`: on macOS it maps `adhoc` to `-`, finds `codesign`,
+  and adds a POST_BUILD `codesign --force --sign … --entitlements …` for every
+  `[[bin]]` and `SHARED` `[[lib]]` (never tests or static libs). `--force`
+  replaces the linker's ad-hoc signature; the root `entitlements.plist` is
+  scaffolded once (user-owned, untracked by sync) with
+  `com.apple.security.get-task-allow`, which makes `leaks`/LLDB able to attach.
+  Empty identity disables signing; a keychain identity can be substituted in
+  Forge.toml or `cmake/user.cmake`. Dylibs get signed but macOS does not embed
+  entitlements in them.
 
 ```bash
-cd /Users/amr/Repos/projector
+cd /Users/amr/Repos/forge
 shellcheck -x -S warning bin/forge install.sh uninstall.sh lib/*.sh lib/commands/*.sh tests/run.sh tests/fakebin/*
 PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
 ```
@@ -377,8 +389,9 @@ PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH" bash tests/run.sh
   sync retires legacy `cmake/deps/<name>/CMakeLists.txt` files recorded in state.
   `cmake/ProjectOptionsUser.cmake` is included after `ProjectOptions.cmake` and
   carries bracket-literal `set(...)` lines from `[cmake.variables]`.
-  `include(cmake/user.cmake OPTIONAL)` follows it, then
-  `cmake/Diagnostics.cmake`; sync never records `cmake/user.cmake`. Package lookups
+  `include(cmake/user.cmake OPTIONAL)` follows it, then `cmake/CodeSign.cmake`
+  and `cmake/Diagnostics.cmake`; sync never records `cmake/user.cmake` or
+  `entitlements.plist`. Package lookups
   use `GLOBAL` to make imported targets visible to consumers. Workspace targets
   stay in their original build directories. Uppercase dependency aliases use
   hyphen escapes in generated file names so aliases that differ only by case

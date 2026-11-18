@@ -256,6 +256,15 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "sync preserves an edited entitlements.plist" {
+  printf '\n<!-- local edit -->\n' >> entitlements.plist
+  cp entitlements.plist entitlements.before
+  run_forge --no-color sync --apply --yes
+  [ "$status" -eq 0 ]
+  cmp entitlements.before entitlements.plist
+  jq -e '.files | has("entitlements.plist") | not' .forge/state.json
+}
+
 @test "sync moves a legacy root user.cmake into cmake without recording it" {
   rm cmake/user.cmake
   printf '# my local overrides\n' > user.cmake

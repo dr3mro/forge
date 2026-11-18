@@ -103,6 +103,12 @@ ${metadata}cppstd = "20"
 generator = "Ninja"
 default_profile = "debug"
 
+[cmake.variables]
+FORGE_CODESIGN_IDENTITY = "adhoc"
+FORGE_CODESIGN_ENTITLEMENTS = "entitlements.plist"
+CMAKE_C_FLAGS_DEBUG = "-O0 -g"
+CMAKE_CXX_FLAGS_DEBUG = "-O0 -g"
+
 ${block}
 EOF
 }
@@ -238,6 +244,10 @@ scaffold_project() {
   if [[ ! -e "${dir}/cmake/user.cmake" && ! -L "${dir}/cmake/user.cmake" ]]; then
     (set -o noclobber; printf '# Set local CMake overrides here. Forge sync preserves this file.\n' > "${dir}/cmake/user.cmake") \
       || die "${EXIT_OTHER}" "could not create cmake/user.cmake"
+  fi
+  if [[ ! -e "${dir}/entitlements.plist" && ! -L "${dir}/entitlements.plist" ]]; then
+    (set -o noclobber; cp "${tpl}/entitlements.plist.tpl" "${dir}/entitlements.plist") \
+      || die "${EXIT_OTHER}" "could not create entitlements.plist"
   fi
   cmake_render_all "${dir}" && state_init && state_record_generated \
     || die "${EXIT_OTHER}" "could not generate CMake files or record sync state"

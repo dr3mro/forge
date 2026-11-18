@@ -606,6 +606,26 @@ CPP
   [ "$status" -eq 0 ]
 }
 
+@test "macOS debug binaries are codesigned with the debugging entitlement" {
+  [[ "$(uname -s)" == Darwin ]] || skip "macOS only"
+  run_forge --no-color build
+  [ "$status" -eq 0 ]
+
+  run codesign -dv target/debug/hello
+  [ "$status" -eq 0 ]
+  run codesign -d --entitlements - target/debug/hello
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'com.apple.security.get-task-allow'* ]]
+
+  # Debug flags come from the seeded [cmake.variables].
+  grep -q -- '-O0' compile_commands.json
+
+  # leaks can attach to the signed process.
+  run leaks -quiet -atExit -- target/debug/hello
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'not debuggable'* ]]
+}
+
 @test "Clang diagnostics are active in a real build and user.cmake can opt out" {
   CC=clang CXX=clang++ run_forge --no-color build
   [ "$status" -eq 0 ]

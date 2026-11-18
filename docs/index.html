@@ -556,11 +556,17 @@ dependencies and targets; sync never rewrites it and moves an older root
 <code>user.cmake</code> on the next apply. Cargo-style Clang diagnostics
 live in the managed <code>cmake/Diagnostics.cmake</code>; set
 <code>FORGE_CLANG_DIAGNOSTICS</code> to <code>OFF</code> in
-<code>cmake/user.cmake</code> to opt out. clangd and clang-tidy can consume
-the generated compilation database.</p>
+<code>cmake/user.cmake</code> to opt out. On macOS,
+<code>cmake/CodeSign.cmake</code> signs executables and shared libraries with
+the root <code>entitlements.plist</code> (user-owned, with
+<code>get-task-allow</code> so LLDB and <code>leaks</code> can attach).
+Set <code>FORGE_CODESIGN_IDENTITY</code> to a keychain identity or an empty
+string to change or disable signing. clangd and clang-tidy can consume the
+generated compilation database.</p>
 <pre>[cmake.variables]
-CMAKE_CXX_STANDARD = 23
-BUILD_TESTING = false</pre></article>
+FORGE_CODESIGN_IDENTITY = "adhoc"
+FORGE_CODESIGN_ENTITLEMENTS = "entitlements.plist"
+CMAKE_CXX_FLAGS_DEBUG = "-O0 -g"</pre></article>
 <details data-command="remove"><summary><code>forge remove NAME [--lib]</code><span>Remove a dependency or detach a library, then sync</span></summary>
 <div class="content">
 <dl>

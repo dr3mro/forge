@@ -272,6 +272,16 @@ Set `FORGE_CLANG_DIAGNOSTICS` to `OFF` in `cmake/user.cmake`, or pass
 For inline editor diagnostics and automatic fixes, point clangd at the
 generated `compile_commands.json`; clang-tidy can use the same database.
 
+New projects seed `[cmake.variables]` with `FORGE_CODESIGN_IDENTITY = "adhoc"`,
+`FORGE_CODESIGN_ENTITLEMENTS = "entitlements.plist"`, and `-O0 -g` debug flags.
+On macOS, the managed `cmake/CodeSign.cmake` signs executables and shared
+libraries after linking, replacing the linker's ad-hoc signature with one that
+embeds the root `entitlements.plist`. That file is user-owned and includes
+`com.apple.security.get-task-allow`, so LLDB and `leaks` can attach to Debug
+builds. Edit it for distribution signing; set `FORGE_CODESIGN_IDENTITY` to a
+keychain identity or to `""` in `Forge.toml` or `cmake/user.cmake` to use a
+different signature or disable signing. Test executables are not signed.
+
 ## Watch mode
 
 `forge watch` builds and runs the selected application. It stops the old

@@ -45,6 +45,15 @@ load ../test_helper
   grep -Fq 'include(cmake/ProjectOptionsUser.cmake)' CMakeLists.txt
   grep -Fq 'forge_clang_diagnostics()' CMakeLists.txt
   jq -e '.files | has("cmake/user.cmake") | not' .forge/state.json
+  [ -f entitlements.plist ]
+  grep -q 'com.apple.security.get-task-allow' entitlements.plist
+  [ -f cmake/CodeSign.cmake ]
+  grep -Fq 'forge_codesign_target' cmake/Targets.cmake
+  grep -Fxq 'FORGE_CODESIGN_IDENTITY = "adhoc"' Forge.toml
+  grep -Fxq 'FORGE_CODESIGN_ENTITLEMENTS = "entitlements.plist"' Forge.toml
+  grep -Fxq 'CMAKE_CXX_FLAGS_DEBUG = "-O0 -g"' Forge.toml
+  jq -e '.files | has("cmake/CodeSign.cmake")' .forge/state.json
+  jq -e '.files | has("entitlements.plist") | not' .forge/state.json
   run_forge --no-color sync --check
   [ "$status" -eq 0 ]
   cd "$old"; rm -rf "$dir"
