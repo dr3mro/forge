@@ -349,6 +349,22 @@ GitHub Actions run. The recorded Bashcov result predates this CI follow-up.
   Empty identity disables signing; a keychain identity can be substituted in
   Forge.toml or `cmake/user.cmake`. Dylibs get signed but macOS does not embed
   entitlements in them. The full 181-test Bats suite and ShellCheck passed.
+- `forge help` was redesigned as a task-oriented, one-screen reference driven
+  by `lib/cli-reference.tsv`. The overview keeps the literal `Quick start:`
+  before `Commands:` and a single aligned description column across commands
+  and global options (the Bats alignment/no-dot contract), but groups verbs
+  into task sections with emoji headings, a banner, colored usage lines,
+  workflow recipes, a tip/more footer and an exit-code legend. Per-verb help
+  (`forge help deps pin` / `forge <cmd> --help`) shows the synopsis, scope
+  options, and every catalog example. `reference_complete` is untouched.
+  New `ui_blue`/`ui_magenta` helpers in `lib/ui.sh` feed the new headings;
+  all styling still goes through `ui_*`, so `--no-color`/`NO_COLOR` remain
+  ANSI-free. Missing per-verb examples were added to `cli-reference.tsv`
+  (the website already carried them), so every verb now has a clear example.
+  ShellCheck passed. The full Bats suite was 179/181 after the change; the two
+  failures (integration/01_build.bats tests 159 and 160, legacy CMake sync and
+  manifest-variable build) reproduce identically on pristine HEAD and are
+  unrelated to the help work.
 
 ```bash
 cd /Users/amr/Repos/forge

@@ -156,3 +156,13 @@ option	generate lib	--static	Build a static library (default)
 option	generate lib	--shared	Build a shared library
 option	generate lib	--dynamic	Alias for --shared
 example	generate lib	forge generate lib plugin --shared
+example	init	forge init --name widget --lib --defaults
+example	generate bin	forge generate bin worker
+example	deps lock	forge deps lock
+example	deps status	forge deps status --format json
+example	docs	forge docs
+example	fmt	forge fmt --check
+example	metadata	forge metadata --format json
+example	workflow init	forge workflow init --dry-run
+example	update	forge update
+example	uninstall	forge uninstall

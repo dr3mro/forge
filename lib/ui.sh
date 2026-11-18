@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # Forge UI module — restrained color, TTY detection, precedence handling.
-# API: ui_init; ui_red ui_green ui_yellow ui_bold ui_dim; ui_strip_ansi.
+# API: ui_init; ui_red ui_green ui_yellow ui_blue ui_magenta ui_cyan
+#      ui_bold ui_dim; ui_help_row; ui_strip_ansi.
 # Inputs: FORGE_NO_COLOR, FORGE_FORCE_COLOR, NO_COLOR, stdout TTY state.
 # Outputs: sets FORGE_COLOR (0/1). No other side effects.
 #
@@ -36,12 +37,14 @@ _ui_color() {
 }
 
 # Convenience wrappers for severity colors and text emphasis.
-ui_red()    { _ui_color 31 "$@"; }
-ui_green()  { _ui_color 32 "$@"; }
-ui_yellow() { _ui_color 33 "$@"; }
-ui_cyan()   { _ui_color 36 "$@"; }
-ui_bold()   { _ui_color 1 "$@"; }
-ui_dim()    { _ui_color 2 "$@"; }
+ui_red()     { _ui_color 31 "$@"; }
+ui_green()   { _ui_color 32 "$@"; }
+ui_yellow()  { _ui_color 33 "$@"; }
+ui_blue()    { _ui_color 34 "$@"; }
+ui_magenta() { _ui_color 35 "$@"; }
+ui_cyan()    { _ui_color 36 "$@"; }
+ui_bold()    { _ui_color 1 "$@"; }
+ui_dim()     { _ui_color 2 "$@"; }
 
 # Two-column help row with aligned columns:
 #   ui_help_row LABEL DESCRIPTION LABEL_WIDTH [green|cyan|bold]
