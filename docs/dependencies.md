@@ -58,8 +58,11 @@ local Conan cache.
 `forge add fmt/12.0.0 --vcpkg` adds an exact version override. If the workspace
 has no `build.vcpkg_baseline`, Forge records the current Git commit from
 `VCPKG_ROOT` in the workspace root's manifest. Existing baselines are reused.
-Use `PORT/VERSION#PORT_VERSION` to specify a port revision. Building an older
-port requires a checkout with its Git history.
+Use `PORT/VERSION#PORT_VERSION` to specify a port revision. When the checkout
+has a `versions/<letter>-/<port>.json` registry record, Forge checks the
+requested version before editing the manifest and, if it is missing, fails
+with every version that port offers. Building an older port requires a
+checkout with its Git history.
 `forge add sqlite3 --vcpkg` uses package `unofficial-sqlite3` and imported
 target `unofficial::sqlite3::sqlite3`. Use `--target` to choose a consuming
 project target and `--cmake-target` to name the dependency's imported target.

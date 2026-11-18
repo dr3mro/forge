@@ -248,6 +248,7 @@ cmd_add() {
 
   local baseline="" root_manifest=""
   if [[ -n "${port_version}" ]]; then
+    vcpkg_validate_version "${port}" "${port_version}" || return $?
     fields+=("version=${port_version}")
     local workspace_root
     workspace_root=$(workspace_enclosing_root "${FORGE_ROOT}") || return "${EXIT_CONFLICT}"

@@ -60,6 +60,29 @@ vcpkg_workspace_manifest() {
   ' <<< "${records}"
 }
 
+# Reject a version the local registry does not offer, listing every one it does.
+vcpkg_validate_version() {
+  local port="$1" version="$2" root="${VCPKG_ROOT:-}" file listed base port_revision
+  [[ -n "${root}" ]] || return 0
+  [[ "${version}" =~ ^([^#]+)(#([0-9]+))?$ ]] || return 0
+  base="${BASH_REMATCH[1]}"
+  port_revision="${BASH_REMATCH[3]:-0}"
+  file="${root}/versions/${port:0:1}-/${port}.json"
+  [[ -f "${file}" ]] || return 0
+  listed=$(jq -r '.versions[]?
+    | (.["version-string"] // .version // .["version-semver"] // .["version-date"]) as $v
+    | (."port-version" // 0) as $p
+    | "\($v)#\($p)"' "${file}" 2>/dev/null) || return 0
+  [[ -n "${listed}" ]] || return 0
+  grep -Fxq "${base}#${port_revision}" <<< "${listed}" && return 0
+  local display
+  display=$(jq -r '[.versions[]?
+    | (.["version-string"] // .version // .["version-semver"] // .["version-date"]) as $v
+    | (."port-version" // 0) as $p
+    | if $p == 0 then $v else "\($v)#\($p)" end] | join(", ")' "${file}" 2>/dev/null)
+  die "${EXIT_DEP}" "${port}/${version} is not available in VCPKG_ROOT. Available versions: ${display}"
+}
+
 # Set up manifest mode in the build directory and pass its options to CMake.
 vcpkg_prepare_configure() {
   local build_dir="$1" previous_toolchain="$2" manifest="$3"

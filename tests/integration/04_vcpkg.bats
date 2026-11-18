@@ -131,6 +131,29 @@ make_registry() {
   git -C "$VCPKG_ROOT" -c user.name=Forge -c user.email=forge@example.test commit -qm baseline
 }
 
+@test "vcpkg version add reports all registry versions for a missing version" {
+  make_registry
+  mkdir -p "$VCPKG_ROOT/versions/f-"
+  cat > "$VCPKG_ROOT/versions/f-/fmt.json" <<'JSON'
+{"versions":[
+  {"git-tree":"a","version-string":"12.2.1","port-version":0},
+  {"git-tree":"b","version-string":"12.0.0","port-version":0},
+  {"git-tree":"c","version-string":"11.2.0","port-version":1}
+]}
+JSON
+  cp Forge.toml before
+
+  run_forge add --yes fmt/99.0.0 --vcpkg
+  [ "$status" -eq 4 ]
+  [[ "$output" == *'fmt/99.0.0 is not available in VCPKG_ROOT'* ]]
+  [[ "$output" == *'Available versions: 12.2.1, 12.0.0, 11.2.0#1'* ]]
+  cmp before Forge.toml
+
+  run_forge add --yes 'fmt/11.2.0#1' --vcpkg
+  [ "$status" -eq 0 ]
+  grep -Fxq 'version = "11.2.0#1"' Forge.toml
+}
+
 @test "vcpkg version shortcut pins the workspace baseline and avoids re-adding the same port" {
   make_registry
   local baseline

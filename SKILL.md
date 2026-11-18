@@ -168,7 +168,11 @@ projects for manual tests.
   exact overrides. If the workspace has no baseline, the first versioned add
   pins the current Git commit of `VCPKG_ROOT`. Existing baselines are reused,
   and adding from a member records the baseline at the workspace root. Older
-  ports may need Git history missing from shallow checkouts. The 163-test
+  ports may need Git history missing from shallow checkouts. When
+  `$VCPKG_ROOT/versions/<letter>-/<port>.json` exists,
+  `vcpkg_validate_version` matches `version#port-version` against it before
+  editing the manifest and fails with the full version list on a miss; absent
+  registry files (fixtures, partial checkouts) skip the check. The 163-test
   Bats suite and ShellCheck passed. A real fmt 12.2.1 vcpkg build passed
   CTest and ran.
 - The package-manager shortcuts add the dependency and its selected link in
