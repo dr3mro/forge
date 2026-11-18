@@ -123,6 +123,14 @@ load ../test_helper
   [ "$output" = '--format=json' ]
   run_forge __complete a test --sanitize
   [ "$output" = $'address\nasan' ]
+  run_forge __complete '' new --cppstd
+  [ "$output" = $'17\n20\n23' ]
+  run_forge __complete '' generate lib --cppstd
+  [ "$output" = $'17\n20\n23' ]
+  run_forge __complete -- build
+  [[ "$output" == *'--clean-first'* ]]
+  run_forge __complete -- test
+  [[ "$output" == *'--list'* ]]
   run_forge __complete -- run -- --release
   [ "$status" -eq 0 ]
   [ -z "$output" ]
