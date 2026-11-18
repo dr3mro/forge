@@ -55,6 +55,23 @@ load ../test_helper
   cd "$old"; rm -rf "$dir"
 }
 
+@test "generate accepts a per-member C++ standard override" {
+  local dir="${BATS_TMPDIR}/forge-cppstd-override-$$" old="$PWD"
+  mkdir -p "$dir"; cd "$dir"
+  run_forge --no-color new root --defaults --cppstd 17 >/dev/null
+  [ "$status" -eq 0 ]
+  cd root
+  run_forge --no-color generate lib fast --cppstd 23 >/dev/null
+  [ "$status" -eq 0 ]
+  grep -q '^cppstd = "23"$' libs/fast/Forge.toml
+  run_forge --no-color generate lib bad --cppstd 14
+  [ "$status" -eq 2 ]
+  [ ! -e libs/bad ]
+  run_forge --no-color generate class Foo --cppstd 23
+  [ "$status" -eq 2 ]
+  cd "$old"; rm -rf "$dir"
+}
+
 @test "new scaffolds user, manifest-variable, and diagnostics modules under cmake" {
   local dir="${BATS_TMPDIR}/forge-cmake-modules-$$" old="$PWD"
   mkdir -p "$dir"; cd "$dir"

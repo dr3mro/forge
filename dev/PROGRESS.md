@@ -48,4 +48,11 @@
 - Confirmed BUG-005 with a disposable probe: root `cppstd=17` produced `libs/widget/Forge.toml` with `cppstd=20`.
 - Added `workspace_application_cppstd()` in `lib/commands/generate.sh`, mirroring the namespace helper, with a safe default of 20 for older manifests.
 - Added regression test in `tests/unit/04_project.bats` and a note in `docs/commands.md`.
-- Verification: `shellcheck_exit=0`, `1..202`, `bats_exit=0` — 202/202 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..202`, `bats_exit=0` — 202/202 green locally. Committed and pushed as `8fec0ef`.
+
+### Next task — per-member `--cppstd` override for generate (complete, verified)
+
+- Added `--cppstd 17|20|23` to `generate lib|bin`; explicit value overrides the inherited root standard. `generate class` rejects it. Invalid values exit 2 before any files are written.
+- Catalog, website and `docs/commands.md` aligned; regression test added in `tests/unit/04_project.bats`.
+- QA reliability probe: 52 missing-operand CLI invocations across all flags, zero hangs (BUG-004 pattern confirmed isolated).
+- Verification: `shellcheck_exit=0`, `1..203`, `bats_exit=0` — 203/203 green locally. Commit/push pending.

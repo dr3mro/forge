@@ -6,6 +6,7 @@ Ideas discovered while working the loop. Promoted into an iteration when they be
 
 - _2026-11-18: resolved. One failure was observed mid-campaign (website catalog test 149: missing `--cppstd 23` example in `docs/index.html`); fixed and full suite re-run at 201/201 with ShellCheck clean. No open test failures._
 - ~~**Candidate bug:** generated workspace members ignored root `cppstd`.~~ Confirmed by probe, fixed with `workspace_application_cppstd()` and regression test (BUG-005).
+- ~~**Per-member `--cppstd` override**~~ Implemented for `generate lib|bin`; members inherit root by default and accept an explicit override.
 
 ## Candidate ideas (not yet scheduled)
 

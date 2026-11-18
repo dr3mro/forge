@@ -638,6 +638,7 @@ forge sync --apply --yes</pre></div></details>
 <dt>--c</dt><dd>Generate C source and a C-compatible header</dd>
 <dt>--cpp</dt><dd>Generate C++ sources (default)</dd>
 <dt>--namespace NAME</dt><dd>Set the C++ library namespace (defaults to the root project name)</dd>
+<dt>--cppstd STD</dt><dd>Set the C++ standard for this member (defaults to the root project)</dd>
 <dt>--static</dt><dd>Build a static library (default)</dd>
 <dt>--shared</dt><dd>Build a shared library</dd>
 <dt>--dynamic</dt><dd>Alias for --shared</dd>
@@ -649,6 +650,7 @@ forge generate lib plugin --shared</pre></div></details>
 <div class="content">
 <dl>
 <dt>--cpp</dt><dd>Generate C++ sources</dd>
+<dt>--cppstd STD</dt><dd>Set the C++ standard for this member (defaults to the root project)</dd>
 </dl>
 <pre>forge generate bin worker</pre></div></details>
 <details data-command="generate class"><summary><code>forge generate class NAME [PATH] [--namespace NAME]</code><span>Create a C++ class pair in PATH (default: current directory)</span></summary>

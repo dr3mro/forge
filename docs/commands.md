@@ -44,8 +44,8 @@ accept `--namespace NAME`. Pass `--defaults` to skip prompts for omitted fields.
 Use `forge generate lib math --namespace acme::numeric` to put the generated
 `math` class in a custom namespace. It defaults to the root
 application project's name. Generated members also inherit the root project's
-`cppstd`. C++ libraries from `new --lib` and `init --lib` use the same
-template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
+`cppstd`; pass `--cppstd 17|20|23` to override it for one member. C++ libraries
+from `new --lib` and `init --lib` use the same template. Pass `--static` (default), `--shared`, or its alias `--dynamic`
 to choose library linkage. New root projects automatically receive GitHub
 Actions for Debug and Release on Windows, Linux, and macOS.
 

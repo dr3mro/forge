@@ -7,8 +7,8 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Commands discovered | build, run, watch, test (sanitizer paths) |
 | Scenarios executed | Full Bats suite (201 tests) + focused probes |
 | Passed | 201 (final clean run) |
-| Failed | 0 (final); 4 defects found and fixed during the campaign |
-| Confirmed bugs | 4 (1 high, 3 low) |
+| Failed | 0 (final); 5 defects found and fixed during the campaign |
+| Confirmed bugs | 5 (1 high, 1 medium, 3 low) |
 | Critical / High | 0 / 1 |
 | Platforms tested | macOS (local) |
 

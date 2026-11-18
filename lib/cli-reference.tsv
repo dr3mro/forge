@@ -137,8 +137,10 @@ option	metadata	--format FORMAT	Select the metadata output format	json
 option	generate lib	--c	Generate C source and a C-compatible header
 option	generate lib	--cpp	Generate C++ sources (default)
 option	generate lib	--namespace NAME	Set the C++ library namespace (defaults to the root project name)
+option	generate lib	--cppstd STD	Set the C++ standard for this member (defaults to the root project)	17 20 23
 option	generate class	--namespace NAME	Set the C++ namespace (defaults to the root project name)
 option	generate bin	--cpp	Generate C++ sources
+option	generate bin	--cppstd STD	Set the C++ standard for this member (defaults to the root project)	17 20 23
 example	new	forge new hello --defaults --version 1.2.3
 example	new	forge new hello --defaults --cppstd 23
 example	build	forge build --release --target hello

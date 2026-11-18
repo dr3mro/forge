@@ -55,7 +55,7 @@ generate_class() {
 
 # Scaffold a workspace member and register it in the parent manifest.
 cmd_generate() {
-  local kind="${1:-}" name="${2:-}" subdir dest extension=cpp cpp_namespace="" linkage=""
+  local kind="${1:-}" name="${2:-}" subdir dest extension=cpp cpp_namespace="" linkage="" cppstd=""
   local -a class_path=()
   if [[ "${kind}" == --help || "${kind}" == -h ]]; then
     cmd_help generate
@@ -65,12 +65,20 @@ cmd_generate() {
     cmd_help generate "${kind}"
     return
   fi
-  (( $# >= 2 )) || die "${EXIT_USAGE}" "usage: forge generate lib|bin NAME [--c|--cpp] [--namespace NAME]"
+  (( $# >= 2 )) || die "${EXIT_USAGE}" "usage: forge generate lib|bin NAME [--c|--cpp] [--namespace NAME] [--cppstd 17|20|23]"
   shift 2
   while (( $# )); do
     case "$1" in
       --cpp) extension=cpp ;;
       --c) extension=c ;;
+      --cppstd)
+        [[ -n "${2:-}" && "$2" != -* ]] || die "${EXIT_USAGE}" "--cppstd requires a value"
+        [[ "$2" =~ ^(17|20|23)$ ]] || die "${EXIT_USAGE}" "--cppstd must be 17, 20 or 23"
+        cppstd="$2"; shift ;;
+      --cppstd=*)
+        cppstd="${1#*=}"
+        [[ "${cppstd}" =~ ^(17|20|23)$ ]] || die "${EXIT_USAGE}" "--cppstd must be 17, 20 or 23"
+        shift ;;
       --static|--shared|--dynamic)
         local requested_linkage="${1#--}"
         if [[ "${requested_linkage}" == dynamic ]]; then requested_linkage=shared; fi
@@ -92,7 +100,7 @@ cmd_generate() {
     shift
   done
   if [[ "${kind}" == class ]]; then
-    [[ "${extension}" == cpp && -z "${linkage}" ]] \
+    [[ "${extension}" == cpp && -z "${linkage}" && -z "${cppstd}" ]] \
       || die "${EXIT_USAGE}" "class generation accepts only --namespace and an optional PATH"
   else
     [[ "${kind}" == lib || "${extension}" == cpp ]] \
@@ -152,8 +160,10 @@ cmd_generate() {
   [[ ! -L "${member_parent}" ]] || die "${EXIT_CONFLICT}" "refusing to use a symlinked member directory: ${member_parent}"
   local saved_root="${FORGE_ROOT}" saved_manifest="${FORGE_MANIFEST_PATH}" author_line cppstd
   author_line=$(project_author_line)
-  cppstd=$(workspace_application_cppstd) \
-    || die "${EXIT_USAGE}" "could not read the workspace C++ standard"
+  if [[ -z "${cppstd}" ]]; then
+    cppstd=$(workspace_application_cppstd) \
+      || die "${EXIT_USAGE}" "could not read the workspace C++ standard"
+  fi
   scaffold_project "${dest}" "${name}" "${kind}" 0 "0.1.0" "" "${author_line}" "${extension}" "${cpp_namespace}" "${linkage}" 0 "${cppstd}"
   FORGE_ROOT="${saved_root}"
   FORGE_MANIFEST_PATH="${saved_manifest}"
