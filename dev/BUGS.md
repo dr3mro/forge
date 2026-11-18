@@ -7,8 +7,8 @@ QA summary — iteration 1 (sanitizer build/run slice)
 | Commands discovered | build, run, watch, test (sanitizer paths) |
 | Scenarios executed | Full Bats suite (201 tests) + focused probes |
 | Passed | 201 (final clean run) |
-| Failed | 0 (final); 6 defects found and fixed during the campaign |
-| Confirmed bugs | 6 (1 high, 2 medium, 3 low) |
+| Failed | 0 (final); 7 defects found and fixed during the campaign |
+| Confirmed bugs | 7 (1 high, 2 medium, 4 low) |
 | Critical / High | 0 / 1 |
 | Platforms tested | macOS (local) |
 
@@ -129,6 +129,20 @@ QA summary — iteration 1 (sanitizer build/run slice)
 **Root cause:** `cmd_clean` only removed build directories; `link_compile_commands()` had no cleanup counterpart.  
 **Fix:** add `prune_compile_commands_links()` in `lib/cmake.sh`, called after successful deletion. It removes only symlinks with Forge-owned destinations that resolve inside `target/` and no longer exist; regular files and unexpected symlinks are untouched.  
 **Regression tests:** extended `clean dry-run preserves...` and added `clean --all preserves unrelated target files and prunes stale database links`.
+
+## BUG-007 — `test --release` suggested the debug build command
+
+**Severity:** Low  
+**Category:** UX / CLI  
+**Status:** Fixed — verified locally (208/208 Bats, ShellCheck clean)  
+**Reproducibility:** Always
+
+**Summary:** With no Release build present, `forge test --release` exited 5 with `run 'forge build'`, which builds the default debug profile and does not fix the condition.
+
+**Evidence:** disposable CLI run; regression test `test reports a profile-aware repair hint when the profile is not built`.  
+**Root cause:** the missing-build `die` in `cmd_test` predated profile flags and used a fixed hint.  
+**Fix:** emit `forge build --release` when the selected profile is `release`.  
+**Verification:** focused test passed; full suite 208/208.
 
 ## Unverified risks
 

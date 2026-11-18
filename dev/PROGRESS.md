@@ -85,4 +85,9 @@
 - QA probe found `target/compile_commands.json` and the root link dangling after `clean --all`, while an unrelated `target/user-notes.txt` was correctly preserved.
 - Added `prune_compile_commands_links()` in `lib/cmake.sh` and called it after successful deletions in `cmd_clean`. It only removes Forge-patterned symlinks resolving under `target/` that no longer exist.
 - Extended the profile-clean test and added a `clean --all` test asserting both links are gone and user files survive (BUG-006).
-- Verification: `shellcheck_exit=0`, `1..207`, `bats_exit=0` — 207/207 green locally. Commit/push pending.
+- Verification: `shellcheck_exit=0`, `1..207`, `bats_exit=0` — 207/207 green locally. Committed and pushed as `cebcfec`.
+
+### Next task — profile-aware test repair hint (complete, verified)
+
+- BUG-007: `forge test --release` before a release build suggested `forge build` (debug). It now suggests `forge build --release`; regression test added in `tests/unit/07_devtools.bats`.
+- Verification: `shellcheck_exit=0`, `1..208`, `bats_exit=0` — 208/208 green locally. Commit/push pending.

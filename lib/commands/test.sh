@@ -53,8 +53,11 @@ cmd_test() {
     build_dir=$(resolve_build_dir "${profile}") || die "${EXIT_USAGE}" "invalid build profile: ${profile}"
   fi
 
-  [[ -d "${build_dir}" ]] \
-    || die "${EXIT_BUILD}" "project is not built for '${profile}' (run 'forge build')"
+  if [[ ! -d "${build_dir}" ]]; then
+    local build_hint="forge build"
+    [[ "${profile}" == release ]] && build_hint="forge build --release"
+    die "${EXIT_BUILD}" "project is not built for '${profile}' (run '${build_hint}')"
+  fi
 
   if (( FORGE_DRY_RUN )); then
     if (( list )); then

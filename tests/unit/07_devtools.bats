@@ -189,6 +189,12 @@ teardown() {
   [ "$status" -eq 2 ]
 }
 
+@test "test reports a profile-aware repair hint when the profile is not built" {
+  run_forge --no-color test --release
+  [ "$status" -eq 5 ]
+  [[ "$output" == *"forge build --release"* ]]
+}
+
 @test "test --list reports a clear error before the project is built" {
   run_forge --no-color test --list
   [ "$status" -eq 5 ]
